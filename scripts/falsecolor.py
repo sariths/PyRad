@@ -184,7 +184,7 @@ class Falsecolor:
 					self.raise_on_error(actstr,
 							'Nonzero exit (%d) from command [%s].'
 							% (res, self.qjoin(displ)))
-		return p
+			return p
 
 	def call_two(self, cmdl_1, cmdl_2, fn, actstr_1, actstr_2):
 		f = None
@@ -243,12 +243,12 @@ class Falsecolor:
 
 	def compute_extrema(self):
 		pex_cmd = ['pextrem', '-o', self.params['picture']]
+		pex_proc = self.call_one(pex_cmd,  'compute extrema',
+				out=subprocess.PIPE)
 		if self.donothing: # bogus values for demonstration purposes
 			mins = '758 475 8.045565e-02 6.217769e-02 6.119852e-02'
 			maxs = '550 314 4.328220e+01 4.294798e+01 4.361643e+01'
 		else:
-			pex_proc = self.call_one(pex_cmd,  'compute extrema',
-					out=subprocess.PIPE)
 			mins = pex_proc.stdout.readline()
 			maxs = pex_proc.stdout.readline()
 			pex_proc.stdout.close()
@@ -298,13 +298,16 @@ class Falsecolor:
 
 		psign_proc = self.call_one(psign_cmd, 'create scale labels',
 				_in=subprocess.PIPE, out=self.params['slabpic_fn'])
-		for line in psign_ilines:
-			# Py3 text is unicode, convert to ASCII
-			bline = (line + '\n').encode()
-			psign_proc.stdin.write(bline)
-		psign_proc.stdin.close()
-		# now we can wait for it
-		res = psign_proc.wait()
+		if self.donothing:
+			res = 0
+		else:
+			for line in psign_ilines:
+				# Py3 text is unicode, convert to ASCII
+				bline = (line + '\n').encode()
+				psign_proc.stdin.write(bline)
+			psign_proc.stdin.close()
+			# now we can wait for it
+			res = psign_proc.wait()
 		if res != 0:
 			self.raise_on_error(actstr,
 					'Nonzero exit (%d) from command [%s].'
@@ -312,7 +315,6 @@ class Falsecolor:
 		invert_cmd = ['pcomb', '-e', 'lo=1-gi(1)', self.params['slabpic_fn']]
 		invert_proc = self.call_one(invert_cmd, 'create inverted label',
 			out=self.params['slabinvpic_fn'])
-
 
 	def temp_fnames(self):
 		if self.donothing:
@@ -339,7 +341,6 @@ class Falsecolor:
 		self.params['slabinvpic_fn'] = os.path.join(self.tmpdir, 'slabinv.hdr')
 		self.params['minvpic_fn'] = os.path.join(self.tmpdir, 'minv.hdr')
 		self.params['maxvpic_fn'] = os.path.join(self.tmpdir, 'maxv.hdr')
-		self.params['combpic_fn'] = os.path.join(self.tmpdir, 'comb.hdr')
 
 	def combine_pictures(self, extrema, legend):
 		pcB_cmd = (['pcomb'] + self.params['pc0args'] + self.params['pc1args']
@@ -383,10 +384,13 @@ class Falsecolor:
 			histo_cmd = ['phisto', self.params['picture']]
 			hi_proc = self.call_one(histo_cmd, 'create scaling histogram',
 					out=subprocess.PIPE)
-			# apparently we want the second highest histogram value
-			histo = hi_proc.stdout.readlines()[-2]
-			hi_proc.stdout.close()
-			logmax = float(histo.split()[0])
+			if self.donothing:
+				logmax = 1234
+			else:
+				# apparently we want the second highest histogram value
+				histo = hi_proc.stdout.readlines()[-2]
+				hi_proc.stdout.close()
+				logmax = float(histo.split()[0])
 			self.params['scale'] = self.params['mult'] / 179 * 10** logmax
 
 	def create_palettes(self):
