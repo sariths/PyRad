@@ -21,6 +21,7 @@ some additional functionality.
  * **falsecolor.py** - Make a false color Radiance picture
  * **phisto.py** - Compute foveal histogram for picture set
  * **rlux.py** - Compute illuminance from ray origin and direction
+ * **pveil.py** - Add veiling glare to picture
 
 ###Contributions welcome
  - more scripts (implementing the same design goals)
