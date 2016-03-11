@@ -30,7 +30,9 @@ When adding scripts to this collection, you might want to consider a few guideli
 
       eg. for calfile templates
 
-    - `class **Name**():`
+    - `class Name():`
+
+      Using the uppercased name of the script.
 
     - A number of standardized methods to use. We currently keep the files self-contained. But we may decide in the future to farm out certain common elements into one or several files, eg. containing a common base class with utility routines. Using identical method definitions now where possible will make this a lot easier.
 
@@ -61,14 +63,14 @@ When adding scripts to this collection, you might want to consider a few guideli
       * Use `argparse.ArgumentParser()` for command line handling if possible. Some of the existing scripts have slightly unconventional command lines though, which may make this a challenge.
 
     - start on loading:
-            ```python
+
             if __name__ == '__main__':
                 try: main()
                     except KeyboardInterrupt:
                         sys.stderr.write('*cancelled*\n')
                     except Exception as e:
                         sys.stderr.write('%s: %s\n' % (SHORTPROGN, e))
-            ```
+
 
 
 
