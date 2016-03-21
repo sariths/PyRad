@@ -13,6 +13,8 @@ import tempfile
 import argparse
 import subprocess
 
+from pyradlib.proc_mixin import ProcMixin
+
 SHORTPROGN = os.path.splitext(os.path.split(sys.argv[0])[1])[0]
 
 defaults = {
@@ -131,7 +133,7 @@ PALETTES = ('def', 'spec', 'pm3d', 'hot', 'eco')
 
 class Error(Exception): pass
 
-class Falsecolor:
+class Falsecolor(ProcMixin):
 	def __init__(self, **params):
 		self.params = defaults.copy()
 		self.params.update(params)
@@ -151,103 +153,8 @@ class Falsecolor:
 						os.unlink(os.path.join(self.tmpdir, fn))
 					os.rmdir(self.tmpdir)
 
-	def configure_subprocess(self):
-		# On Windows, sys.stdxxx may not be available when:
-		# - built as *.exe with "pyinstaller --noconsole"
-		# - invoked via CreateProcess() and stream not redirected
-		try:
-			sys.__stdin__.fileno()
-			self._stdin = sys.stdin
-		except: self._stdin = subprocess.PIPE
-		try:
-			sys.__stdout__.fileno()
-			self._stdout = sys.stdout
-		except: self._stdout = subprocess.PIPE
-		try:
-			sys.__stderr__.fileno()
-			self._stderr = sys.stderr
-		# keep subprocesses from opening their own console.
-		except: self._stderr = subprocess.PIPE
-		if hasattr(subprocess, 'STARTUPINFO'):
-			si = subprocess.STARTUPINFO()
-			si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-			self._pipeargs = {'startupinfo':si}
-		else: self._pipeargs = {}
-
-
 	def raise_on_error(self, actstr, e):
 		raise Error('Unable to %s - %s' % (actstr, str(e)))
-
-	def qjoin(self, sl):
-		def _q(s):
-			if ' ' in s or '\t' in s or ';' in s:
-				return "'" + s + "'"
-			return s
-		return  ' '.join([_q(s) for s in sl])
-
-	def call_one(self, cmdl, actstr, _in=None, out=None):
-		if _in == subprocess.PIPE: stdin = _in
-		elif _in: stdin = open(_in, 'rb')
-		else: stdin = self._stdin # make pyinstaller happy
-		if out == subprocess.PIPE: stdout = out
-		elif out: stdout = open(out, 'wb')
-		else: stdout = self._stdout # make pyinstaller happy
-		displ = cmdl[:]
-		if isinstance(_in, str): displ[:0] = [_in, '>']
-		if isinstance(out, str): displ.extend(['>', out])
-		if self.verbose:
-			sys.stderr.write('### %s \n' % actstr)
-			sys.stderr.write(self.qjoin(displ) + '\n')
-		if not self.donothing:
-			try: p = subprocess.Popen(cmdl, stdin=stdin, stdout=stdout,
-					stderr=self._stderr, **self._pipeargs)
-			except Exception as e:
-				self.raise_on_error(actstr, str(e))
-			if stdin != subprocess.PIPE:
-				# caller needs to wait after writing (else deadlock)
-				res = p.wait()
-				if res != 0:
-					self.raise_on_error(actstr,
-							'Nonzero exit (%d) from command [%s].'
-							% (res, self.qjoin(displ)))
-			return p
-
-	def call_two(self, cmdl_1, cmdl_2, out, actstr_1, actstr_2):
-		stdout = None
-		if out: stdout = open(out, 'wb')
-		else: stdout = self._stdout
-		if self.verbose:
-			sys.stderr.write('### %s \n' % actstr_1)
-			sys.stderr.write('### %s \n' % actstr_2)
-			sys.stderr.write(self.qjoin(cmdl_1) + ' | ')
-		if not self.donothing:
-			try: p1 = subprocess.Popen(cmdl_1, stdin=self._stdin,
-					stdout=subprocess.PIPE, stderr=self._stderr,
-					**self._pipeargs)
-			except Exception as e:
-				self.raise_on_error(actstr_1, str(e))
-		if self.verbose:
-			if isinstance(out, str):
-				sys.stderr.write(self.qjoin(cmdl_2) + ' > "%s"\n' % out)
-			else:
-				sys.stderr.write(self.qjoin(cmdl_2) + '\n')
-		if not self.donothing:
-			try:
-				p2 = subprocess.Popen(cmdl_2, stdin=p1.stdout, stdout=stdout,
-						stderr=self._stderr, **self._pipeargs)
-				p1.stdout.close()
-			except Exception as e:
-				self.raise_on_error(actstr_2, str(e))
-			res = p1.wait()
-			if res != 0:
-				self.raise_on_error(actstr_1,
-						'Nonzero exit (%d) from command [%s].'
-						% (res, self.qjoin(cmdl_1)))
-			res = p2.wait()
-			if res != 0:
-				self.raise_on_error(actstr_2,
-						'Nonzero exit (%d) from command [%s].'
-						% (res, self.qjoin(cmdl_2)))
 
 	def run(self):
 		self.create_calfiles()
@@ -392,7 +299,7 @@ class Falsecolor:
 				self.params['maxvpic_fn'],
 				str(self.params['maxposx']), str(self.params['maxposy']), ]
 			pcP_cmd.extend(extr_add)
-		self.call_two(pcB_cmd, pcP_cmd, None,
+		self.call_two(pcB_cmd, pcP_cmd, 
 				'combine final picture','compose final picture')
 
 	def create_calfiles(self):

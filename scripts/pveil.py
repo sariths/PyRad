@@ -46,13 +46,6 @@ class Pveil():
 	def raise_on_error(self, actstr, e):
 		raise Error('Unable to %s - %s' % (actstr, str(e)))
 
-	def qjoin(self, sl):
-		def _q(s):
-			if ' ' in s or '\t' in s or ';' in s:
-				return "'" + s + "'"
-			return s
-		return  ' '.join([_q(s) for s in sl])
-
 	def run(self):
 		fg_cmd = 'findglare -r 400 -c -p'.split() + [self.imgfile]
 		p = self.call_one(fg_cmd, 'extract glare values', out=subprocess.PIPE)
@@ -106,32 +99,6 @@ class Pveil():
 			elif line.startswith(b'BEGIN glare source'):
 				found = True
 		return data
-
-	def call_one(self, cmdl, actstr, _in=None, out=None):
-		if _in == subprocess.PIPE: stdin = _in
-		elif _in: stdin = open(_in, 'rb')
-		else: stdin = None
-		if out == subprocess.PIPE: stdout = out
-		elif out: stdout = open(out, 'wb')
-		else: stdout = None
-		displ = cmdl[:]
-		if isinstance(_in, str): displ[:0] = [_in, '>']
-		if isinstance(out, str): displ.extend(['>', out])
-		if self.verbose:
-			sys.stderr.write('### %s \n' % actstr)
-			sys.stderr.write(self.qjoin(displ) + '\n')
-		if not self.donothing:
-			try: p = subprocess.Popen(cmdl, stdin=stdin, stdout=stdout)
-			except Exception as e:
-				self.raise_on_error(actstr, str(e))
-			if stdin != subprocess.PIPE:
-				# caller needs to wait after writing (else deadlock)
-				res = p.wait()
-				if res != 0:
-					self.raise_on_error(actstr,
-							'Nonzero exit (%d) from command [%s].'
-							% (res, self.qjoin(displ)))
-			return p
 
 
 def main():

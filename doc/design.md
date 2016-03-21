@@ -5,7 +5,7 @@
  - dry-run mode (-N)
  - detailed error diagnostics
  - compatible with Python 2.7 and Python 3.x
- - self contained (all functionality in one file)
+ - self contained (all functionality can be combined in one file)
  - truly cross-platform (no external dependencies other than Python and Radiance)
  - direct process management (no intermediate shell calls)
  - immune to whitespace in file names
@@ -20,27 +20,33 @@ When adding scripts to this collection, you might want to consider a few guideli
 
     - `__all__ = ('main')`
 
-      for now. Allowing use as a module might be useful in some cases
+    - from pyradlib.pyrad_proc import ProcMixin
 
-    - `SHORTPROGN = ...`
+      Process management library. See below for building/installing.
+
+    - `SHORTPROGN = os.path.splitext(os.path.split(sys.argv[0])[1])[0]`
 
     - `class Error(Exception): pass`
 
-    - `SOME_DATA = '''...`
+    - `SOME_DATA = '''...'''`
 
       eg. for calfile templates
 
-    - `class Name():`
+    - `class **Name**(ProcMixin):`
 
       Using the uppercased name of the script.
 
-    - A number of standardized methods to use. We currently keep the files self-contained. But we may decide in the future to farm out certain common elements into one or several files, eg. containing a common base class with utility routines. Using identical method definitions now where possible will make this a lot easier.
+    - A number of standardized methods to use. 
 
       * `def raise_on_error(self, actstr, e):`
 
       * `def qjoin(self, sl):`
 
+        From ProcMixin
+
       * `self.call_one(self, cmdl, actstr, _in=None, out=None):`
+
+        From ProcMixin
 
         Invoke a Radiance executable.
 				`cmdl` is the command line with executable name and arguments seperated in a list.
@@ -50,6 +56,8 @@ When adding scripts to this collection, you might want to consider a few guideli
 				Otherwise it will use the existing stdin/stdout streams.
 
       * `self.call_two(self, cmsdl_1, cmdl_2, actstr_1, actstr_2, _in=None, out=None):`
+
+        From ProcMixin
 
 				Invoke two Radiance executable and chain them in a pipe (`cmd1 | cmd2`).
 				`_in` and `out` apply to the complete pipe. The other arguments are analog to call_one().
@@ -73,4 +81,21 @@ When adding scripts to this collection, you might want to consider a few guideli
 
 
 
+
+###Building and Installing
+
+On unix systems, pyradlib can either be installed as well and added to the
+PYTHONPATH (eg. below the Radiance file library).
+
+It is also possible to just insert the file contents of the mixin(s) in place
+of the respective import statement in each script, making them entirely
+self-contained.
+
+On Windows, the most practical approach is to use "pyinstaller -F" to generate
+completely self-contained executables. If file size is of concern (eg. for a
+binary distribution), then create a spec file to build a multiprogram bundle
+with merged common modules, which will include the runtime overhead in only one
+of the files.
+
+All that can easily be included in any of the current Radiance build systems.
 
