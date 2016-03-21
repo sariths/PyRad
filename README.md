@@ -16,6 +16,7 @@ some additional functionality.
  - direct process management (no intermediate shell calls)
  - immune to whitespace in file names
  - tamper-proof use of temporary files
+ - instrumented for building a single-file *.exe with pyinstaller
 
 ###Currently implemented
  * **falsecolor.py** - Make a false color Radiance picture

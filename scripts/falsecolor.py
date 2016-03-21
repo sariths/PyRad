@@ -139,16 +139,41 @@ class Falsecolor:
 		self.verbose = params.get('verbose', False)
 		self.tmpdir = None
 		self.picfn = None
-		self.temp_fnames()
+		self.configure_subprocess()
+		self.make_tempfnames()
 		self.autoscale()
 		self.gen_pcargs()
 		try: self.run()
 		finally:
-			return
-			if self.tmpdir and os.path.isdir(self.tmpdir):
-				for fn in os.listdir(self.tmpdir):
-					os.unlink(os.path.join(self.tmpdir, fn))
-				os.rmdir(self.tmpdir)
+			if 1:
+				if self.tmpdir and os.path.isdir(self.tmpdir):
+					for fn in os.listdir(self.tmpdir):
+						os.unlink(os.path.join(self.tmpdir, fn))
+					os.rmdir(self.tmpdir)
+
+	def configure_subprocess(self):
+		# On Windows, sys.stdxxx may not be available when:
+		# - built as *.exe with "pyinstaller --noconsole"
+		# - invoked via CreateProcess() and stream not redirected
+		try:
+			sys.__stdin__.fileno()
+			self._stdin = sys.stdin
+		except: self._stdin = subprocess.PIPE
+		try:
+			sys.__stdout__.fileno()
+			self._stdout = sys.stdout
+		except: self._stdout = subprocess.PIPE
+		try:
+			sys.__stderr__.fileno()
+			self._stderr = sys.stderr
+		# keep subprocesses from opening their own console.
+		except: self._stderr = subprocess.PIPE
+		if hasattr(subprocess, 'STARTUPINFO'):
+			si = subprocess.STARTUPINFO()
+			si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+			self._pipeargs = {'startupinfo':si}
+		else: self._pipeargs = {}
+
 
 	def raise_on_error(self, actstr, e):
 		raise Error('Unable to %s - %s' % (actstr, str(e)))
@@ -163,10 +188,10 @@ class Falsecolor:
 	def call_one(self, cmdl, actstr, _in=None, out=None):
 		if _in == subprocess.PIPE: stdin = _in
 		elif _in: stdin = open(_in, 'rb')
-		else: stdin = None
+		else: stdin = self._stdin # make pyinstaller happy
 		if out == subprocess.PIPE: stdout = out
 		elif out: stdout = open(out, 'wb')
-		else: stdout = None
+		else: stdout = self._stdout # make pyinstaller happy
 		displ = cmdl[:]
 		if isinstance(_in, str): displ[:0] = [_in, '>']
 		if isinstance(out, str): displ.extend(['>', out])
@@ -174,7 +199,8 @@ class Falsecolor:
 			sys.stderr.write('### %s \n' % actstr)
 			sys.stderr.write(self.qjoin(displ) + '\n')
 		if not self.donothing:
-			try: p = subprocess.Popen(cmdl, stdin=stdin, stdout=stdout)
+			try: p = subprocess.Popen(cmdl, stdin=stdin, stdout=stdout,
+					stderr=self._stderr, **self._pipeargs)
 			except Exception as e:
 				self.raise_on_error(actstr, str(e))
 			if stdin != subprocess.PIPE:
@@ -186,25 +212,29 @@ class Falsecolor:
 							% (res, self.qjoin(displ)))
 			return p
 
-	def call_two(self, cmdl_1, cmdl_2, fn, actstr_1, actstr_2):
-		f = None
-		if fn: f = open(fn, 'wb')
+	def call_two(self, cmdl_1, cmdl_2, out, actstr_1, actstr_2):
+		stdout = None
+		if out: stdout = open(out, 'wb')
+		else: stdout = self._stdout
 		if self.verbose:
 			sys.stderr.write('### %s \n' % actstr_1)
 			sys.stderr.write('### %s \n' % actstr_2)
 			sys.stderr.write(self.qjoin(cmdl_1) + ' | ')
 		if not self.donothing:
-			try: p1 = subprocess.Popen(cmdl_1, stdout=subprocess.PIPE)
+			try: p1 = subprocess.Popen(cmdl_1, stdin=self._stdin,
+					stdout=subprocess.PIPE, stderr=self._stderr,
+					**self._pipeargs)
 			except Exception as e:
 				self.raise_on_error(actstr_1, str(e))
 		if self.verbose:
-			if isinstance(fn, str):
-				sys.stderr.write(self.qjoin(cmdl_2) + ' > "%s"\n' % fn)
+			if isinstance(out, str):
+				sys.stderr.write(self.qjoin(cmdl_2) + ' > "%s"\n' % out)
 			else:
 				sys.stderr.write(self.qjoin(cmdl_2) + '\n')
 		if not self.donothing:
 			try:
-				p2 = subprocess.Popen(cmdl_2, stdin=p1.stdout, stdout=f)
+				p2 = subprocess.Popen(cmdl_2, stdin=p1.stdout, stdout=stdout,
+						stderr=self._stderr, **self._pipeargs)
 				p1.stdout.close()
 			except Exception as e:
 				self.raise_on_error(actstr_2, str(e))
@@ -243,12 +273,12 @@ class Falsecolor:
 
 	def compute_extrema(self):
 		pex_cmd = ['pextrem', '-o', self.params['picture']]
-		pex_proc = self.call_one(pex_cmd,  'compute extrema',
-				out=subprocess.PIPE)
 		if self.donothing: # bogus values for demonstration purposes
 			mins = '758 475 8.045565e-02 6.217769e-02 6.119852e-02'
 			maxs = '550 314 4.328220e+01 4.294798e+01 4.361643e+01'
 		else:
+			pex_proc = self.call_one(pex_cmd,  'compute extrema',
+					out=subprocess.PIPE)
 			mins = pex_proc.stdout.readline()
 			maxs = pex_proc.stdout.readline()
 			pex_proc.stdout.close()
@@ -298,16 +328,13 @@ class Falsecolor:
 
 		psign_proc = self.call_one(psign_cmd, 'create scale labels',
 				_in=subprocess.PIPE, out=self.params['slabpic_fn'])
-		if self.donothing:
-			res = 0
-		else:
-			for line in psign_ilines:
-				# Py3 text is unicode, convert to ASCII
-				bline = (line + '\n').encode()
-				psign_proc.stdin.write(bline)
-			psign_proc.stdin.close()
-			# now we can wait for it
-			res = psign_proc.wait()
+		for line in psign_ilines:
+			# Py3 text is unicode, convert to ASCII
+			bline = (line + '\n').encode()
+			psign_proc.stdin.write(bline)
+		psign_proc.stdin.close()
+		# now we can wait for it
+		res = psign_proc.wait()
 		if res != 0:
 			self.raise_on_error(actstr,
 					'Nonzero exit (%d) from command [%s].'
@@ -316,13 +343,14 @@ class Falsecolor:
 		invert_proc = self.call_one(invert_cmd, 'create inverted label',
 			out=self.params['slabinvpic_fn'])
 
-	def temp_fnames(self):
+
+	def make_tempfnames(self):
 		if self.donothing:
 			self.tmpdir = tempfile.mktemp()
 		else:
 			try: self.tmpdir = tempfile.mkdtemp()
 			except Exception as e:
-				self.raise_on_error('create temp directory', e)
+				self.raise_on_error('create temp directory', str(e))
 		self.pc0fn = os.path.join(self.tmpdir, 'pc0.cal')
 		self.pc1fn = os.path.join(self.tmpdir, 'pc1.cal')
 		if self.params['needfile'] and self.params['picture'] == '-':
@@ -341,12 +369,13 @@ class Falsecolor:
 		self.params['slabinvpic_fn'] = os.path.join(self.tmpdir, 'slabinv.hdr')
 		self.params['minvpic_fn'] = os.path.join(self.tmpdir, 'minv.hdr')
 		self.params['maxvpic_fn'] = os.path.join(self.tmpdir, 'maxv.hdr')
+		self.params['combpic_fn'] = os.path.join(self.tmpdir, 'comb.hdr')
 
 	def combine_pictures(self, extrema, legend):
 		pcB_cmd = (['pcomb'] + self.params['pc0args'] + self.params['pc1args']
 				+ [self.params['picture']])
 		if self.params.get('cpict'):
-			pcB_cmd.append(self.params['cpicts'])
+			pcB_cmd.append(self.params['cpict'])
 		pcP_cmd = ['pcompos']
 		if legend:
 			leg_add = [
@@ -384,13 +413,10 @@ class Falsecolor:
 			histo_cmd = ['phisto', self.params['picture']]
 			hi_proc = self.call_one(histo_cmd, 'create scaling histogram',
 					out=subprocess.PIPE)
-			if self.donothing:
-				logmax = 1234
-			else:
-				# apparently we want the second highest histogram value
-				histo = hi_proc.stdout.readlines()[-2]
-				hi_proc.stdout.close()
-				logmax = float(histo.split()[0])
+			# apparently we want the second highest histogram value
+			histo = hi_proc.stdout.readlines()[-2]
+			hi_proc.stdout.close()
+			logmax = float(histo.split()[0])
 			self.params['scale'] = self.params['mult'] / 179 * 10** logmax
 
 	def create_palettes(self):
@@ -488,7 +514,7 @@ def main():
 		help='Height of legend label (default %d px)' % defaults['legheight'])
 
 	parser.add_argument('-s', action='store', nargs=1,
-			metavar='scale', dest='__scale__', 
+			metavar='scale', dest='__scale__', type=float,
 		help='Linear luminance scale (default %d)' % defaults['scale'])
 	parser.add_argument('-log', action='store', nargs=1,
 			metavar='decades', dest='decades', type=int,
@@ -540,8 +566,8 @@ def main():
 					params['scale'] = 45824
 					params['showpal'] = True
 				elif key == '__ipict__':
-					params['picture'] = v
-					params['cpict'] = v
+					params['picture'] = v[0]
+					params['cpict'] = v[0]
 				elif key == '__scale__':
 					params['scale'] = v[0]
 					params['needfile'] = True
@@ -552,16 +578,16 @@ def main():
 
 	#sys.stderr.write('%s\n'%args)
 	#sys.stderr.write('%s\n\n'%params)
-	try: fc = Falsecolor(**params)
-	except Error as e:
-		sys.stderr.write('%s: %s\n' % (SHORTPROGN, str(e)))
+	fc = Falsecolor(**params)
 
 if __name__ == '__main__':
 	try: main()
 	except KeyboardInterrupt:
 		sys.stderr.write('*cancelled*\n')
 		exit(1)
-	except Error as e:
-		sys.stderr.write('%s: %s\n' % (SHORTPROGN, e))
+	except (Error) as e:
+		#with open('falsecolor.error', 'a') as ef:
+		#	ef.write('%s: %s\n' % (SHORTPROGN, str(e)))
+		sys.stderr.write('%s: %s\n' % (SHORTPROGN, str(e)))
 		exit(-1)
 
