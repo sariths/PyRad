@@ -13,7 +13,7 @@ import tempfile
 import argparse
 import subprocess
 
-from pyradlib.proc_mixin import ProcMixin
+from pyradlib.pyrad_proc import Error, ProcMixin
 
 SHORTPROGN = os.path.splitext(os.path.split(sys.argv[0])[1])[0]
 
@@ -131,8 +131,6 @@ ba = bi(nfiles);
 
 PALETTES = ('def', 'spec', 'pm3d', 'hot', 'eco')
 
-class Error(Exception): pass
-
 class Falsecolor(ProcMixin):
 	def __init__(self, **params):
 		self.params = defaults.copy()
@@ -141,7 +139,6 @@ class Falsecolor(ProcMixin):
 		self.verbose = params.get('verbose', False)
 		self.tmpdir = None
 		self.picfn = None
-		self.configure_subprocess()
 		self.make_tempfnames()
 		self.autoscale()
 		self.gen_pcargs()
@@ -152,9 +149,6 @@ class Falsecolor(ProcMixin):
 					for fn in os.listdir(self.tmpdir):
 						os.unlink(os.path.join(self.tmpdir, fn))
 					os.rmdir(self.tmpdir)
-
-	def raise_on_error(self, actstr, e):
-		raise Error('Unable to %s - %s' % (actstr, str(e)))
 
 	def run(self):
 		self.create_calfiles()

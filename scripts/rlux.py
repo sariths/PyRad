@@ -11,10 +11,9 @@ import sys
 import subprocess
 import argparse
 
-from pyradlib.pyrad_proc import ProcMixin
+from pyradlib.pyrad_proc import Error, ProcMixin
 
 SHORTPROGN = os.path.splitext(os.path.split(sys.argv[0])[1])[0]
-class Error(Exception): pass
 
 class Rlux(ProcMixin):
 	def __init__(self, args):
@@ -23,9 +22,6 @@ class Rlux(ProcMixin):
 		self.rtrargs = args.rtrargs
 		self.octree = args.octree[0]
 		self.run()
-
-	def raise_on_error(self, actstr, e):
-		raise Error('Unable to %s - %s' % (actstr, str(e)))
 
 	def run(self):
 		rtr_cmd = 'rtrace -i+ -dv- -h- -x 1'.split() + self.rtrargs

@@ -11,23 +11,18 @@ import tempfile
 import subprocess
 import argparse
 
-from pyradlib.pyrad_proc import ProcMixin
+from pyradlib.pyrad_proc import Error, ProcMixin
 
 SHORTPROGN = os.path.splitext(os.path.split(sys.argv[0])[1])[0]
-class Error(Exception): pass
 
 class Phisto(ProcMixin):
 	def __init__(self, args):
 		self.donothing = args.N
 		self.verbose = args.V or self.donothing
 		self.imgfiles = args.picture[0]
-		#self.configure_subprocess()
 		if not self.donothing:
 			self.tmpfile = tempfile.TemporaryFile()
 		self.run()
-
-	def raise_on_error(self, actstr, e):
-		raise Error('Unable to %s - %s' % (actstr, str(e)))
 
 	def run(self):
 		pf_cmd = ['pfilt', '-1', '-x', '128', '-y', '128', '-p', '1']
@@ -39,7 +34,8 @@ class Phisto(ProcMixin):
 		else:
 			for fname in self.imgfiles: # check first
 				if not os.path.isfile(fname):
-					raise_on_error('open file "%s"' % fname, 'File not found.')
+					self.raise_on_error('open file "%s"' % fname,
+							'File not found.')
 			for fname in self.imgfiles:
 				p = self.call_two(pf_cmd + [fname], pv_cmd,
 						'extract image values', 'filter image values',
