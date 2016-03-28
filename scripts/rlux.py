@@ -8,12 +8,11 @@ Drop-in replacement for the original csh script by Greg Ward.
 __all__ = ('main')
 import os
 import sys
-import subprocess
 import argparse
 
 from pyradlib.pyrad_proc import Error, ProcMixin
 
-SHORTPROGN = os.path.splitext(os.path.split(sys.argv[0])[1])[0]
+SHORTPROGN = os.path.splitext(os.path.basename(sys.argv[0]))[0]
 
 class Rlux(ProcMixin):
 	def __init__(self, args):
@@ -65,6 +64,8 @@ if __name__ == '__main__':
 	try: main()
 	except KeyboardInterrupt:
 		sys.stderr.write('*cancelled*\n')
+		exit(1)
 	except Error as e:
 		sys.stderr.write('%s: %s\n' % (SHORTPROGN, e))
+		exit(-1)
 

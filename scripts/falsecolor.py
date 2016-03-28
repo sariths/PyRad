@@ -4,18 +4,16 @@
 Drop-in replacement for the original Perl script by Greg Ward.
 2002 - 2016 Georg Mischler
 '''
-__all__ = ['main']
-
+__all__ = ('main')
 import os
 import sys
 import math
 import tempfile
 import argparse
-import subprocess
 
-from pyradlib.pyrad_proc import Error, ProcMixin
+from pyradlib.pyrad_proc import PIPE, Error, ProcMixin
 
-SHORTPROGN = os.path.splitext(os.path.split(sys.argv[0])[1])[0]
+SHORTPROGN = os.path.splitext(os.path.basename(sys.argv[0]))[0]
 
 defaults = {
 	'name':     SHORTPROGN,
@@ -178,8 +176,7 @@ class Falsecolor(ProcMixin):
 			mins = '758 475 8.045565e-02 6.217769e-02 6.119852e-02'
 			maxs = '550 314 4.328220e+01 4.294798e+01 4.361643e+01'
 		else:
-			pex_proc = self.call_one(pex_cmd,  'compute extrema',
-					out=subprocess.PIPE)
+			pex_proc = self.call_one(pex_cmd,  'compute extrema', out=PIPE)
 			mins = pex_proc.stdout.readline()
 			maxs = pex_proc.stdout.readline()
 			pex_proc.stdout.close()
@@ -228,7 +225,7 @@ class Falsecolor(ProcMixin):
 		psign_cmd = ('psign -s -0.15 -cf 1 1 1 -cb 0 0 0 -h %d'%height).split()
 
 		psign_proc = self.call_one(psign_cmd, 'create scale labels',
-				_in=subprocess.PIPE, out=self.params['slabpic_fn'])
+				_in=PIPE, out=self.params['slabpic_fn'])
 		for line in psign_ilines:
 			# Py3 text is unicode, convert to ASCII
 			bline = (line + '\n').encode()
@@ -313,7 +310,7 @@ class Falsecolor(ProcMixin):
 		if isinstance(scale, str) and scale.strip()[0] in 'aA':
 			histo_cmd = ['phisto', self.params['picture']]
 			hi_proc = self.call_one(histo_cmd, 'create scaling histogram',
-					out=subprocess.PIPE)
+					out=PIPE)
 			# apparently we want the second highest histogram value
 			histo = hi_proc.stdout.readlines()[-2]
 			hi_proc.stdout.close()
@@ -487,8 +484,6 @@ if __name__ == '__main__':
 		sys.stderr.write('*cancelled*\n')
 		exit(1)
 	except (Error) as e:
-		#with open('falsecolor.error', 'a') as ef:
-		#	ef.write('%s: %s\n' % (SHORTPROGN, str(e)))
 		sys.stderr.write('%s: %s\n' % (SHORTPROGN, str(e)))
 		exit(-1)
 

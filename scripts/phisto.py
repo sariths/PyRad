@@ -8,12 +8,11 @@ __all__ = ('main')
 import sys
 import os
 import tempfile
-import subprocess
 import argparse
 
-from pyradlib.pyrad_proc import Error, ProcMixin
+from pyradlib.pyrad_proc import PIPE, Error, ProcMixin
 
-SHORTPROGN = os.path.splitext(os.path.split(sys.argv[0])[1])[0]
+SHORTPROGN = os.path.splitext(os.path.basename(sys.argv[0]))[0]
 
 class Phisto(ProcMixin):
 	def __init__(self, args):
@@ -48,13 +47,13 @@ class Phisto(ProcMixin):
 		if not self.donothing: self.tmpfile.seek(0)
 		lmin_proc = self.call_two(lmin_t_cmd, lmin_rc_cmd,
 			'extract lower limit', 'compute minimum',
-			_in=self.tmpfile, out=subprocess.PIPE)
+			_in=self.tmpfile, out=PIPE)
 		lmax_t_cmd = ['total', '-if', '-u']
 		lmax_rc_cmd = ['rcalc', '-e', '$1=log10($1*179)+.01']
 		if not self.donothing: self.tmpfile.seek(0)
 		lmax_proc = self.call_two(lmax_t_cmd, lmax_rc_cmd,
 			'extract upper limit', 'compute maximum',
-			_in=self.tmpfile, out=subprocess.PIPE)
+			_in=self.tmpfile, out=PIPE)
 		if self.donothing: # dry run, display dummy values
 			lmin = '<Lmin>'
 			lmax = '<Lmax>'
@@ -69,6 +68,7 @@ class Phisto(ProcMixin):
 		res_proc = self.call_two(rc_cmd, hi_cmd,
 			'extract records', 'compute histogram',
 			_in=self.tmpfile)
+
 
 def main():
 	''' This is a command line script and not currently usable as a module.
@@ -85,10 +85,13 @@ def main():
 		help='HDR image files to analyze (else stdin)')
 	Phisto(parser.parse_args())
 
+
 if __name__ == '__main__':
-        try: main()
-        except KeyboardInterrupt:
-                sys.stderr.write('*cancelled*\n')
-        except Error as e:
-                sys.stderr.write('%s: %s\n' % (SHORTPROGN, e))
+	try: main()
+	except KeyboardInterrupt:
+		sys.stderr.write('*cancelled*\n')
+		exit(1)
+	except Error as e:
+		sys.stderr.write('%s: %s\n' % (SHORTPROGN, e))
+		exit(-1)
 
