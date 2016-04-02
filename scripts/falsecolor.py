@@ -11,6 +11,17 @@ import math
 import tempfile
 import argparse
 
+if not getattr(sys, 'frozen', False):
+	_rp = os.environ.get('RAYPATH')
+	if not _rp:
+		print('No RAYPATH, unable to find support library'); sys.exit(-1)
+	for _p in _rp.split(os.path.pathsep):
+		if os.path.isdir(os.path.join(_p, 'pyradlib')):
+			if _p not in sys.path: sys.path.insert(0, _p)
+			break
+	else:
+		print('Support library not found on RAYPATH'); sys.exit(-1)
+
 from pyradlib.pyrad_proc import PIPE, Error, ProcMixin
 
 SHORTPROGN = os.path.splitext(os.path.basename(sys.argv[0]))[0]
@@ -241,7 +252,6 @@ class Falsecolor(ProcMixin):
 		invert_proc = self.call_one(invert_cmd, 'create inverted label',
 			out=self.params['slabinvpic_fn'])
 
-
 	def make_tempfnames(self):
 		if self.donothing:
 			self.tmpdir = tempfile.mktemp()
@@ -365,6 +375,7 @@ class Falsecolor(ProcMixin):
 		params['pc0args'] = pc0argl
 		params['pc1args'] = pc1argl
 
+
 def asciistr(s):
 	for c in s:
 		if not 31 < ord(c) < 127:
@@ -482,8 +493,8 @@ if __name__ == '__main__':
 	try: main()
 	except KeyboardInterrupt:
 		sys.stderr.write('*cancelled*\n')
-		exit(1)
+		sys.exit(1)
 	except (Error) as e:
 		sys.stderr.write('%s: %s\n' % (SHORTPROGN, str(e)))
-		exit(-1)
+		sys.exit(-1)
 

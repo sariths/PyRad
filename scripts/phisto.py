@@ -10,6 +10,17 @@ import os
 import tempfile
 import argparse
 
+if not getattr(sys, 'frozen', False):
+	_rp = os.environ.get('RAYPATH')
+	if not _rp:
+		print('No RAYPATH, unable to find support library'); sys.exit(-1)
+	for _p in _rp.split(os.path.pathsep):
+		if os.path.isdir(os.path.join(_p, 'pyradlib')):
+			if _p not in sys.path: sys.path.insert(0, _p)
+			break
+	else:
+		print('Support library not found on RAYPATH'); sys.exit(-1)
+
 from pyradlib.pyrad_proc import PIPE, Error, ProcMixin
 
 SHORTPROGN = os.path.splitext(os.path.basename(sys.argv[0]))[0]
@@ -19,7 +30,9 @@ class Phisto(ProcMixin):
 		self.donothing = args.N
 		self.verbose = args.V or self.donothing
 		self.imgfiles = args.picture[0]
-		if not self.donothing:
+		if self.donothing:
+			self.tmpfile = '<tmpfile>'
+		else:
 			self.tmpfile = tempfile.TemporaryFile()
 		self.run()
 
@@ -47,21 +60,19 @@ class Phisto(ProcMixin):
 		if not self.donothing: self.tmpfile.seek(0)
 		lmin_proc = self.call_two(lmin_t_cmd, lmin_rc_cmd,
 			'extract lower limit', 'compute minimum',
-			_in=self.tmpfile, out=PIPE)
+			_in=self.tmpfile, out=PIPE, universal_newlines=True)
 		lmax_t_cmd = ['total', '-if', '-u']
 		lmax_rc_cmd = ['rcalc', '-e', '$1=log10($1*179)+.01']
 		if not self.donothing: self.tmpfile.seek(0)
 		lmax_proc = self.call_two(lmax_t_cmd, lmax_rc_cmd,
 			'extract upper limit', 'compute maximum',
-			_in=self.tmpfile, out=PIPE)
+			_in=self.tmpfile, out=PIPE, universal_newlines=True)
 		if self.donothing: # dry run, display dummy values
 			lmin = '<Lmin>'
 			lmax = '<Lmax>'
-		else: # Py3 wants unicode for verbose display
+		else:
 			lmin = lmin_proc[1].stdout.read().strip()
 			lmax = lmax_proc[1].stdout.read().strip()
-			lmin = lmin.decode()
-			lmax = lmax.decode()
 		rc_cmd = ['rcalc', '-if', '-e', 'L=$1*179;cond=L-1e-7;$1=log10(L)']
 		hi_cmd = ['histo', lmin, lmax, '777']
 		if not self.donothing: self.tmpfile.seek(0)
@@ -90,8 +101,8 @@ if __name__ == '__main__':
 	try: main()
 	except KeyboardInterrupt:
 		sys.stderr.write('*cancelled*\n')
-		exit(1)
+		sys.exit(1)
 	except Error as e:
 		sys.stderr.write('%s: %s\n' % (SHORTPROGN, e))
-		exit(-1)
+		sys.exit(-1)
 

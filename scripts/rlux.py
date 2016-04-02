@@ -10,6 +10,17 @@ import os
 import sys
 import argparse
 
+if not getattr(sys, 'frozen', False):
+	_rp = os.environ.get('RAYPATH')
+	if not _rp:
+		print('No RAYPATH, unable to find support library'); sys.exit(-1)
+	for _p in _rp.split(os.path.pathsep):
+		if os.path.isdir(os.path.join(_p, 'pyradlib')):
+			if _p not in sys.path: sys.path.insert(0, _p)
+			break
+	else:
+		print('Support library not found on RAYPATH'); sys.exit(-1)
+
 from pyradlib.pyrad_proc import Error, ProcMixin
 
 SHORTPROGN = os.path.splitext(os.path.basename(sys.argv[0]))[0]
@@ -64,8 +75,8 @@ if __name__ == '__main__':
 	try: main()
 	except KeyboardInterrupt:
 		sys.stderr.write('*cancelled*\n')
-		exit(1)
+		sys.exit(1)
 	except Error as e:
 		sys.stderr.write('%s: %s\n' % (SHORTPROGN, e))
-		exit(-1)
+		sys.exit(-1)
 
