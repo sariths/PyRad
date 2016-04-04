@@ -20,8 +20,7 @@ if not getattr(sys, 'frozen', False):
 			if _p not in sys.path: sys.path.insert(0, _p)
 			break
 	else:
-		pass
-		# print('Support library not found on RAYPATH'); sys.exit(-1)
+		print('Support library not found on RAYPATH'); sys.exit(-1)
 
 from pyradlib.pyrad_proc import PIPE, Error, ProcMixin
 
