@@ -23,6 +23,7 @@ some additional functionality.
  * **phisto.py** - Compute foveal histogram for picture set
  * **rlux.py** - Compute illuminance from ray origin and direction
  * **pveil.py** - Add veiling glare to picture
+ * **glaze.py** - Interactive complex glazing model generator
 
 ###Contributions welcome
  - more scripts (implementing the same design goals)
