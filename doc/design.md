@@ -55,7 +55,7 @@ When adding scripts to this collection, you might want to consider a few guideli
 	  We use `sys.exit()` instead of just `exit()` because the latter is
 	  defined in site.py, which is not normally included in a frozen file.
 
-    - `from pyradlib.pyrad_proc import ProcMixin`
+    - `from pyradlib.pyrad_proc import Error, PIPE, ProcMixin`
 
       Process management library (if needed). See below for building/installing.
 
@@ -73,34 +73,40 @@ When adding scripts to this collection, you might want to consider a few guideli
 
       Using the uppercased name of the script.
 
-    - A number of standardized methods from ProcMixin to use. 
+    - Methods from ProcMixin to use. 
 
-      * `def raise_on_error(self, actstr, e):`
+      * `self.raise_on_error(self, actstr, e)`
 
-      * `def qjoin(self, sl):`
+      * `self.qjoin(self, sl)`
 
-      * `self.call_one(self, cmdl, actstr, _in=None, out=None, universal_newlines=False):`
+      * `self.call_one(self, cmdl, actstr, _in=None, out=None, universal_newlines=False)`
 
-        Invoke a Radiance executable.
-				`cmdl` is the command line with executable name and arguments seperated in a list.
-				`actstr` is a short description of the action for verbose operation and error messages
-				(eg.: `"filter input image"`). To have it read from stdin, pass an open file object to `_in`,
-				to have it write to stdout, pass an open file object to `out`.
-				Otherwise it will use the existing stdin/stdout streams.
-				If `universal_newlines` is true, the *output* pipe will return
-				text instead of bytes data.
+        Invoke a Radiance executable and return a single subprocess.Popen instance.
+		`cmdl` is the command line with executable name and arguments seperated
+		in a list.
+		`actstr` is a short description of the action for verbose operation and
+		error messages (eg.: `"filter input image"`).
+		`_in` and `out` may be 
+		- filename as string - opens that file for reading or writing
+		- a file like object - reads and writes from/to the file
+		- PIPE - Popen.stdin resp. Popen.stdout will be available to write to and read from. 
+		Otherwise it will use the existing stdin/stdout streams.
+		If `universal_newlines` is true, the *output* pipe will output
+		text instead of bytes data.
 
-      * `self.call_two(self, cmsdl_1, cmdl_2, actstr_1, actstr_2, _in=None, out=None, universal_newlines=False):`
+      * `self.call_two(self, cmsdl_1, cmdl_2, actstr_1, actstr_2, _in=None, out=None, universal_newlines=False)`
 
-		Invoke two Radiance executable and chain them in a pipe
-		(`cmd1 | cmd2`). `_in` and `out` apply to the complete pipe.
+		Invoke two Radiance executable, chain them in a pipe, and return a
+		tuple of two subprocess.Popen instances.
+		(`cmd1 | cmd2`). `_in` and `out` apply to the respective ends of the chain.
 		The other arguments are analog to call_one().
 
-      * `self.call_many(self, cmsdsl, actstr, _in=None, out=None, universal_newlines=False):`
+      * `self.call_many(self, cmsdsl, actstr, _in=None, out=None, universal_newlines=False)`
 
-		Invoke an arbitrary number of  Radiance executable and chain them in a
-		pipe (`cmdsl[0] | cmdsl[1]| ... | cmdsl[N] `).
-		`_in` and `out` apply to the complete pipe.
+		Invoke an arbitrary number of  Radiance executable, chain them in a
+		pipe (`cmdsl[0] | cmdsl[1]| ... | cmdsl[N-1] `), and return a tuple
+		of N subprocess.Popen instances.
+		`_in` and `out` apply to the respective ends of the chain.
 		The other arguments are analog to call_one().
 
     -	`def main():`
