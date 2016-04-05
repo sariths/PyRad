@@ -35,21 +35,25 @@ When adding scripts to this collection, you might want to consider a few guideli
 			except ImportError:
 				from itertools import izip_longest as zip_longest, chain
 
-	- Search for the Radiance Python support library (if needed)
+	- Search for the Radiance Python support library (if needed):
 
-			if not getattr(sys, 'frozen', False):
-			_rp = os.environ.get('RAYPATH')
-			if not _rp:
-				print('No RAYPATH, unable to find support library'); sys.exit(-1)
-			for _p in _rp.split(os.path.pathsep):
-				if os.path.isdir(os.path.join(_p, 'pyradlib')):
-					if _p not in sys.path: sys.path.insert(0, _p)
-					break
-			else:
-				print('Support library not found on RAYPATH'); sys.exit(-1)
+			if __name__ == '__main__' and not getattr(sys, 'frozen', False):
+				_rp = os.environ.get('RAYPATH')
+				if not _rp:
+					print('No RAYPATH, unable to find support library'); sys.exit(-1)
+				for _p in _rp.split(os.path.pathsep):
+					if os.path.isdir(os.path.join(_p, 'pyradlib')):
+						if _p not in sys.path: sys.path.insert(0, _p)
+						break
+				else:
+					print('Support library not found on RAYPATH'); sys.exit(-1)
 
-	  For files that are also to be used as a module, we may beed to
-	  wrap that in to an `if __name__ == '__main__':`
+	  When invoked as a module, the caller is responsible that the correct
+	  directories are present in sys.path.
+	  When frozen, the support modules will be included and no search is
+	  necessary.
+	  We use `sys.exit()` instead of just `exit()` because the latter is
+	  defined in site.py, which is not normally included in a frozen file.
 
     - `from pyradlib.pyrad_proc import ProcMixin`
 
@@ -116,22 +120,22 @@ When adding scripts to this collection, you might want to consider a few guideli
                 try: main()
                     except KeyboardInterrupt:
                         sys.stderr.write('*cancelled*\n')
+                        sys.exit(1)
                     except Exception as e:
                         sys.stderr.write('%s: %s\n' % (SHORTPROGN, e))
-
+                        sys.exit(-1)
 
 
 
 ###Building and Installing
 
-On unix systems, pyradlib can either be installed as well and added to the
-PYTHONPATH (eg. below the Radiance file library).
+Pyradlib is shipped as `ray/src/common/pyradlib`.
+It is meant to be installed as a subdirectory to the Radiance file library.
+On unix systems this is sufficient for the scripts to find it.
 
-It is also possible to just insert the file contents of the mixin(s) in place
-of the respective import statement in each script, making them entirely
-self-contained.
-
-On Windows, the most practical approach is to use "pyinstaller -F" to generate
+This doesn't work as well on Windows, because scripts are typically not
+invoked directly, but only as an argument to the interpreter.
+The most practical approach there is to use `pyinstaller -F` to generate
 completely self-contained executables. If file size is of concern (eg. for a
 binary distribution), then create a spec file to build a multiprogram bundle
 with merged common modules, which will include the runtime overhead in only one
