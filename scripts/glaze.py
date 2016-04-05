@@ -317,7 +317,7 @@ __v175 = Glazing('V-175 white frit', 0.33,0.33,0.33, 0.59,0.59,0.59,
 	0.21,0.21,0.21, True)
 __v933 = Glazing('V-933 warm gray frit', 0.15,0.15,0.15, 0.21,0.21,0.21,
 	0.09,0.09,0.09, True)
-__default = [_clear, __lowe, __pvb, __v175, __v933]
+_default = [_clear, __lowe, __pvb, __v175, __v933]
 
 
 class GlazeText(tkinter.Text, object):
@@ -362,7 +362,7 @@ class Glaze(ttk.Frame, object):
 				raise Error('No such file: "%s"' % datafile)
 			self.datafile = os.path.abspath(datafile)
 		else:
-			self.data = __default
+			self.data = _default
 			self.datafile = '<default data>'
 			self.dnames = [d.name for d in self.data]
 		self.initialdir = '.'
@@ -536,8 +536,13 @@ class Glaze(ttk.Frame, object):
 		else:
 			self.draw_pane(xp-40, low, ydist, ydist+25, self.s12_sel, 's1', 's2')
 			self.draw_pane(xp+40, low, ydist, low-25, self.s34_sel, 's3', 's4')
-		self.canvas.create_line((w/2-40, h/2, w/2-10, h/2), arrow=tkinter.LAST)
-		self.canvas.create_text((w/2-40, h/2-20), text='inside', anchor='w')
+		self.canvas.create_line((w/2-30, h/2+10, w/2-10, h/2+10),
+				arrow=tkinter.LAST)
+		self.canvas.create_text((w/2-20, h/2-5), text='int.', anchor='center')
+
+		self.canvas.create_line((-w/2+30, h/2+10, -w/2+10, h/2+10),
+				arrow=tkinter.LAST)
+		self.canvas.create_text((-w/2+20, h/2-5), text='ext.', anchor='center')
 
 	def draw_pane(self, xp, low, ydist, rbh, var, s1t, s2t):
 		pl = [xp+10, ydist, xp+10, low, xp-10, low, xp-10, ydist]
