@@ -14,6 +14,10 @@
 
 When adding scripts to this collection, you might want to consider a few guidelines:
 
+  * Create test cases in `ray/test/testcases/<category>/test_<module>.py`,
+    that the current csh/pl script passes.
+	In the end, make sure that the new script passes as well.
+
   * Use the general architecture as shown in the existing examples
 
     - `#!/usr/bin/env python`
@@ -47,13 +51,15 @@ When adding scripts to this collection, you might want to consider a few guideli
 	  For files that are also to be used as a module, we may beed to
 	  wrap that in to an `if __name__ == '__main__':`
 
-    - `from pyradlib.pyrad_proc import ProcMixin` (if needed)
+    - `from pyradlib.pyrad_proc import ProcMixin`
 
-      Process management library. See below for building/installing.
+      Process management library (if needed). See below for building/installing.
 
-    - `SHORTPROGN = os.path.splitext(os.path.split(sys.argv[0])[1])[0]`
+    - `SHORTPROGN = os.path.splitext(os.path.basename(sys.argv[0]))[0]`
 
-    - `class Error(Exception): pass`
+    - If "Error" was not imported from pyrad_proc above:
+	
+			class Error(Exception): pass
 
     - `SOME_DATA = '''...'''`
 
@@ -63,17 +69,13 @@ When adding scripts to this collection, you might want to consider a few guideli
 
       Using the uppercased name of the script.
 
-    - A number of standardized methods to use. 
+    - A number of standardized methods from ProcMixin to use. 
 
       * `def raise_on_error(self, actstr, e):`
 
       * `def qjoin(self, sl):`
 
-        From ProcMixin
-
-      * `self.call_one(self, cmdl, actstr, _in=None, out=None):`
-
-        From ProcMixin
+      * `self.call_one(self, cmdl, actstr, _in=None, out=None, universal_newlines=False):`
 
         Invoke a Radiance executable.
 				`cmdl` is the command line with executable name and arguments seperated in a list.
@@ -81,13 +83,22 @@ When adding scripts to this collection, you might want to consider a few guideli
 				(eg.: `"filter input image"`). To have it read from stdin, pass an open file object to `_in`,
 				to have it write to stdout, pass an open file object to `out`.
 				Otherwise it will use the existing stdin/stdout streams.
+				If `universal_newlines` is true, the *output* pipe will return
+				text instead of bytes data.
 
-      * `self.call_two(self, cmsdl_1, cmdl_2, actstr_1, actstr_2, _in=None, out=None):`
+      * `self.call_two(self, cmsdl_1, cmdl_2, actstr_1, actstr_2, _in=None, out=None, universal_newlines=False):`
 
-        From ProcMixin
+		Invoke two Radiance executable and chain them in a pipe
+		(`cmd1 | cmd2`). `_in` and `out` apply to the complete pipe.
+		The other arguments are analog to call_one().
 
-				Invoke two Radiance executable and chain them in a pipe (`cmd1 | cmd2`).
-				`_in` and `out` apply to the complete pipe. The other arguments are analog to call_one().
+      * `self.call_many(self, cmsdsl, actstr, _in=None, out=None, universal_newlines=False):`
+
+		Invoke an arbitrary number of  Radiance executable and chain them in a
+		pipe (`cmdsl[0] | cmdsl[1]| ... | cmdsl[N] `).
+		`_in` and `out` apply to the complete pipe.
+		The other arguments are analog to call_one().
+
     -	`def main():`
 
       * docstr for main():
@@ -95,7 +106,9 @@ When adding scripts to this collection, you might want to consider a few guideli
               '''This is a command line script and not currently usable as a module.
               Use the -H option for instructions.'''
               
-      * Use `argparse.ArgumentParser()` for command line handling if possible. Some of the existing scripts have slightly unconventional command lines though, which may make this a challenge.
+	  * Use `argparse.ArgumentParser()` for command line handling if possible.
+	    Some of the existing scripts have slightly unconventional command lines
+	    though, which may make this a challenge.
 
     - start on loading:
 
