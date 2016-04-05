@@ -11,7 +11,7 @@ import math
 import tempfile
 import argparse
 
-if not getattr(sys, 'frozen', False):
+if __name__ == '__main__' and not getattr(sys, 'frozen', False):
 	_rp = os.environ.get('RAYPATH')
 	if not _rp:
 		print('No RAYPATH, unable to find support library'); sys.exit(-1)
@@ -484,10 +484,8 @@ def main():
 			params[key] = v[0]
 		else:
 			params[key] = v
-
-	#sys.stderr.write('%s\n'%args)
-	#sys.stderr.write('%s\n\n'%params)
 	fc = Falsecolor(**params)
+
 
 if __name__ == '__main__':
 	try: main()
