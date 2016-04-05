@@ -10,7 +10,7 @@ import os
 import sys
 import argparse
 
-if not getattr(sys, 'frozen', False):
+if __name__ == '__main__' and not getattr(sys, 'frozen', False):
 	_rp = os.environ.get('RAYPATH')
 	if not _rp:
 		print('No RAYPATH, unable to find support library'); sys.exit(-1)
