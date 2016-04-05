@@ -16,11 +16,38 @@ When adding scripts to this collection, you might want to consider a few guideli
 
   * Use the general architecture as shown in the existing examples
 
-    - boilerplate header
+    - `#!/usr/bin/env python`
+
+    - Module docstring
 
     - `__all__ = ('main')`
 
-    - from pyradlib.pyrad_proc import ProcMixin
+	- Imports from the standard library. When library names have changed,
+	  try the Python3 version first, and on ImportError the Python2.7
+	  version, with suitable renames. E.g.:
+
+			try:
+				from itertools import zip_longest, chain
+			except ImportError:
+				from itertools import izip_longest as zip_longest, chain
+
+	- Search for the Radiance Python support library (if needed)
+
+			if not getattr(sys, 'frozen', False):
+			_rp = os.environ.get('RAYPATH')
+			if not _rp:
+				print('No RAYPATH, unable to find support library'); sys.exit(-1)
+			for _p in _rp.split(os.path.pathsep):
+				if os.path.isdir(os.path.join(_p, 'pyradlib')):
+					if _p not in sys.path: sys.path.insert(0, _p)
+					break
+			else:
+				print('Support library not found on RAYPATH'); sys.exit(-1)
+
+	  For files that are also to be used as a module, we may beed to
+	  wrap that in to an `if __name__ == '__main__':`
+
+    - `from pyradlib.pyrad_proc import ProcMixin` (if needed)
 
       Process management library. See below for building/installing.
 
