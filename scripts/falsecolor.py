@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-'''falsecolor.py - Make a false color Radiance picture
+'''objview - view RADIANCE object(s)
 
-Drop-in replacement for the original Perl script by Greg Ward.
-2002 - 2016 Georg Mischler
+Drop-in replacement for the original c-shell script by Greg Ward.
+2016 Sarith Subramaniam <sarith@sarith.in>
 '''
 __all__ = ('main')
 import os
@@ -266,7 +266,7 @@ class Falsecolor(ProcMixin):
 			self.params['picture'] = self.picfn
 			if not self.donothing:
 				with open(self.picfn, 'wb') as f:
-					# Circumvent the unicode based stdin file object for Py3
+					# Circumvent the unicodeunicode based stdin file object for Py3
 					infd = sys.stdin.fileno()
 					chunk = os.read(infd, 10000)
 					while chunk:
