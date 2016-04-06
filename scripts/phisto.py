@@ -22,6 +22,7 @@ if __name__ == '__main__' and not getattr(sys, 'frozen', False):
 		print('Support library not found on RAYPATH'); sys.exit(-1)
 
 from pyradlib.pyrad_proc import PIPE, Error, ProcMixin
+
 SHORTPROGN = os.path.splitext(os.path.basename(sys.argv[0]))[0]
 
 class Phisto(ProcMixin):

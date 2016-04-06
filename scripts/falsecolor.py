@@ -108,7 +108,7 @@ def_blup(i):select(i,0.2666,0.3638662,0.4770437,
 def_blu(x):interp_arr(x/0.0454545+1,def_blup);
 
 isconta = if(btwn(0,v,1),or(boundary(vleft,vright),boundary(vabove,vbelow)),-1);
-iscontb = if(btwn(0,v,1),btwn(.4,frac(ndivs*v),.6),-1);
+iscontb = if(btwn(0,v,1),btwn(.4,frac(ndivs*v),.6),-1); 
 
 ra = 0;
 ga = 0;
