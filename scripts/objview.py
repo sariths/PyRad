@@ -1,5 +1,5 @@
-# coding=utf-8
 # !/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 """
     objview - view RADIANCE object(s)
@@ -7,7 +7,9 @@
     This script is essentially a re-write of Axel Jacobs' objview.pl from
     http://radiance-online.org/cgi-bin/viewcvs.cgi/ray/src/util/objview.pl
 
-    A few additional path related error checks have been added.
+    Axel's script inturn is a re-write of Greg Ward's original c-shell script.
+
+    Sarith Subramaniam <sarith@sarith.in>,2016.
 """
 
 from __future__ import division, print_function, unicode_literals
@@ -15,13 +17,9 @@ import os
 import sys
 import argparse
 import tempfile
+import shutil
 
 __all__ = ('main')
-__revision__ = '$Revision: 1.0 $'
-
-
-class Error(Exception): pass
-
 
 if __name__ == '__main__' and not getattr(sys, 'frozen', False):
     _rp = os.environ.get('RAYPATH')
@@ -38,13 +36,9 @@ if __name__ == '__main__' and not getattr(sys, 'frozen', False):
 
 from pyradlib.pyrad_proc import Error, ProcMixin
 
+
 SHORTPROGN = os.path.splitext(os.path.basename(sys.argv[0]))[0]
 
-commonOptions = ''
-
-useGl = False
-radOptions = False
-glradOptions = False
 
 lights = """
 void glow dim 0 0 4 .1 .1 .15 0
@@ -55,7 +49,7 @@ bright source sun2 0 0 4 .3 1 1 5
 bright source sun3 0 0 4 -1 -.7 1 5"""
 
 
-def printErrorAndExit(errorString):
+def printErrorAndExit(errorString,tempFolder=None):
     """Utility function for printing an error message and exiting"""
     print(errorString)
     print("Objview will now terminate.")
@@ -71,22 +65,9 @@ class Objview(ProcMixin):
         self.numProc = args.numProc
         self.outputDevice = args.outputDevice
         self.verboseDisplay = args.verboseDisplay
-        self.radFiles = " ".join(args.Radfiles[0])
-
-        # Perhaps this is not an elegant way of checking Null input. But it sees
-        # to do the job for now..
-        if self.radFiles.strip():
-            fileNames = self.radFiles.split()
-            for idx, fileName in enumerate(fileNames):
-                if os.path.isfile(fileName) and os.path.exists(fileName):
-                    fileNames[idx] = os.path.abspath(fileName)
-                else:
-                    printErrorAndExit("{} was either not found or is not a "
-                                      "valid input for Radfiles"
-                                      .format(fileName))
-            self.radFiles = fileNames
-        else:
-            printErrorAndExit("No rad files were specified as input!")
+        self.disableWarnings = args.disableWarnings
+        self.glRadFullScreen = args.glRadFullScreen
+        self.radFiles = args.Radfiles[0]
 
         self.run()
 
@@ -95,7 +76,7 @@ class Objview(ProcMixin):
         outputDevice = 'x11'
 
         # Check if the OpenGL option was used in Windows.
-        if self.useGl and sys.platform == 'win32':
+        if self.useGl and sys.platform.startswith('win'):
             printErrorAndExit("The use of OpenGL is not supported in Windows")
 
         # Try creating a temp folder. Exit if not possible.
@@ -114,12 +95,13 @@ class Objview(ProcMixin):
         # Write lights and join to the input rad files.
         with open(lightsFile, 'w')as lightRad:
             lightRad.write(lights)
+
         self.radFiles.append(lightsFile)
         scene = " ".join(self.radFiles)
 
         # If the OS is Windows then make the path Rad friendly by switching
         # slashes and set the output device to qt.
-        if sys.platform == 'win32':
+        if sys.platform.startswith('win'):
             allFileNames = [scene, octreeFile, lightsFile, rifFile, ambFile]
             for idx, fileName in enumerate(allFileNames):
                 allFileNames[idx] = fileName.replace('\\', '/')
@@ -135,8 +117,30 @@ class Objview(ProcMixin):
         if self.backFaceVisible:
             renderOptions += '-bv '
 
+        radOptions = []
+        radOptionsSet = False
+        glRadOptionsSet = False
+        if self.disableWarnings:
+            radOptions.append("-w")
         if self.numProc:
-            renderOptions += '-n %s' % self.numProc
+            radOptions.extend(['-N',str(self.numProc)])
+            radOptionsSet = True
+        if self.verboseDisplay:
+            radOptions.append('-V')
+            radOptionsSet = True
+        if self.glRadFullScreen:
+            radOptions.append('-S')
+            glRadOptionsSet=True
+
+        if radOptionsSet and self.useGl:
+            printErrorAndExit('One among the following options :() are not'
+                              ' compatible with Open GL'.format(",".join(radOptions)))
+
+        elif glRadOptionsSet and not self.useGl:
+            printErrorAndExit('You have specified an incompable Open GL related'
+                              'input for running a rad based simulation'
+                              .format(",".join(radOptions)))
+
 
         # Create the string for rif file and write to disk.
         rifString = 'scene= %s\n' % scene
@@ -151,14 +155,19 @@ class Objview(ProcMixin):
         with open(rifFile, 'w') as rifData:
             rifData.write(rifString)
 
+
         # Based on user's choice select the output method.
         if self.useGl:
-            cmdString = 'glrad  %s' % rifFile
+            cmdString = ['glrad']+radOptions+[rifFile]
         else:
-            cmdString = 'rad -o %s  %s' % (outputDevice, rifFile)
+            cmdString = ['rad']+['-o',outputDevice]+radOptions+[rifFile]
 
         # Run !
-        self.call_one(cmdString, 'Launch Objview')
+        self.call_one(cmdString,'start rad')
+
+        #Delete tempfolder and files after rvu is closed.
+        shutil.rmtree(tempDir)
+
 
 
 def main():
@@ -183,13 +192,20 @@ def main():
                         help='Specify an output device for rendering',
                         type=str, metavar='outputDevice')
 
-    parser.add_argument('-V', '-e', action='store_false',
+    parser.add_argument('-s', '-w', action='store_true',
+                        dest='disableWarnings',
+                        help='Disable reporting of warning messages.')
+
+    parser.add_argument('-S',action='store_true',dest='glRadFullScreen',
+                        help='Enable full-screen stereo options with OpenGL')
+
+    parser.add_argument('-V', '-e', action='store_true',
                         dest='verboseDisplay',
                         help='Display error messages in standard output')
 
-    parser.add_argument('Radfiles', action='append', nargs='*',
-                        help='File(s) containing radiance scene objects that are'
-                             ' to be rendered interactively.')
+    parser.add_argument('Radfiles', action='append', nargs='+',
+                        help='File(s) containing radiance scene objects that'
+                             ' are to be rendered interactively.')
 
     parser.add_argument('-H', action='help', help='Help: print this text to '
                                                   'stderr and exit.')
