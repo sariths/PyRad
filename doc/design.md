@@ -90,6 +90,7 @@ When adding scripts to this collection, you might want to consider a few guideli
 		- filename as string - opens that file for reading or writing
 		- a file like object - reads and writes from/to the file
 		- PIPE - Popen.stdin resp. Popen.stdout will be available to write to and read from. 
+
 		Otherwise it will use the existing stdin/stdout streams.
 		If `universal_newlines` is true, the *output* pipe will output
 		text instead of bytes data.
