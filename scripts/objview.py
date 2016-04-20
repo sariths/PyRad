@@ -69,101 +69,116 @@ class Objview(ProcMixin):
         self.glRadFullScreen = args.glRadFullScreen
         self.radFiles = args.Radfiles[0]
 
+        self.runSilently = args.runSilently
+        self.printViewsStdin = args.printViewsStdin
         self.run()
 
     def run(self):
-
-        outputDevice = 'x11'
-
-        # Check if the OpenGL option was used in Windows.
-        if self.useGl and sys.platform.startswith('win'):
-            printErrorAndExit("The use of OpenGL is not supported in Windows")
-
-        # Try creating a temp folder. Exit if not possible.
         try:
-            tempDir = tempfile.mkdtemp('RAD')
-        except IOError:
-            printErrorAndExit("Objview could not create a temp folder.\n")
 
-        # create strings for files that are to be written to.
-        createInTemp = lambda fileName: os.path.join(tempDir, fileName)
-        octreeFile = createInTemp('scene.oct')
-        lightsFile = createInTemp('lights.rad')
-        rifFile = createInTemp('scene.rif')
-        ambFile = createInTemp('scene.amb')
+            outputDevice = 'x11'
 
-        # Write lights and join to the input rad files.
-        with open(lightsFile, 'w')as lightRad:
-            lightRad.write(lights)
+            # Check if the OpenGL option was used in Windows.
+            if self.useGl and sys.platform.startswith('win'):
+                printErrorAndExit("The use of OpenGL is not supported in Windows")
 
-        self.radFiles.append(lightsFile)
-        scene = " ".join(self.radFiles)
+            # Try creating a temp folder. Exit if not possible.
+            try:
+                tempDir = tempfile.mkdtemp('RAD')
+            except IOError:
+                printErrorAndExit("Objview could not create a temp folder.\n")
 
-        # If the OS is Windows then make the path Rad friendly by switching
-        # slashes and set the output device to qt.
-        if sys.platform.startswith('win'):
-            allFileNames = [scene, octreeFile, lightsFile, rifFile, ambFile]
-            for idx, fileName in enumerate(allFileNames):
-                allFileNames[idx] = fileName.replace('\\', '/')
+            # create strings for files that are to be written to.
+            createInTemp = lambda fileName: os.path.join(tempDir, fileName)
+            octreeFile = createInTemp('scene.oct')
+            lightsFile = createInTemp('lights.rad')
+            rifFile = createInTemp('scene.rif')
+            ambFile = createInTemp('scene.amb')
 
-            scene, octreeFile, lightsFile, rifFile, ambFile = allFileNames
-            outputDevice = 'qt'
+            if self.radFiles:
+                print(self.radFiles)
 
-        # If the output device is specified by the user, use that.
-        if self.outputDevice:
-            outputDevice = self.outputDevice
+            # Write lights and join to the input rad files.
+            with open(lightsFile, 'w')as lightRad:
+                lightRad.write(lights)
 
-        renderOptions = ''
-        if self.backFaceVisible:
-            renderOptions += '-bv '
+            self.radFiles.append(lightsFile)
+            scene = " ".join(self.radFiles)
 
-        radOptions = []
-        radOptionsSet = False
-        glRadOptionsSet = False
-        if self.disableWarnings:
-            radOptions.append("-w")
-        if self.numProc:
-            radOptions.extend(['-N',str(self.numProc)])
-            radOptionsSet = True
-        if self.verboseDisplay:
-            radOptions.append('-V')
-            radOptionsSet = True
-        if self.glRadFullScreen:
-            radOptions.append('-S')
-            glRadOptionsSet=True
+            # If the OS is Windows then make the path Rad friendly by switching
+            # slashes and set the output device to qt.
+            if os.name == 'nt':
+                allFileNames = [scene, octreeFile, lightsFile, rifFile, ambFile]
+                for idx, fileName in enumerate(allFileNames):
+                    allFileNames[idx] = fileName.replace('\\', '/')
 
-        if radOptionsSet and self.useGl:
-            printErrorAndExit('One among the following options :() are not'
-                              ' compatible with Open GL'.format(",".join(radOptions)))
+                scene, octreeFile, lightsFile, rifFile, ambFile = allFileNames
+                outputDevice = 'qt'
 
-        elif glRadOptionsSet and not self.useGl:
-            printErrorAndExit('You have specified an incompable Open GL related'
-                              'input for running a rad based simulation'
-                              .format(",".join(radOptions)))
+            # If the output device is specified by the user, use that.
+            if self.outputDevice:
+                outputDevice = self.outputDevice
+
+            renderOptions = ''
+            if self.backFaceVisible:
+                renderOptions += '-bv '
+
+            radOptions = []
+            radOptionsSet = False
+            glRadOptionsSet = False
+            if self.disableWarnings:
+                radOptions.append("-w")
+            if self.numProc:
+                radOptions.extend(['-N',str(self.numProc)])
+                radOptionsSet = True
+            if self.verboseDisplay:
+                radOptions.append('-e')
+                radOptionsSet = True
+            if self.glRadFullScreen:
+                radOptions.append('-S')
+                glRadOptionsSet=True
+            if self.runSilently:
+                radOptions.append('-s')
+            if self.printViewsStdin:
+                radOptions.append('-V')
+                radOptionsSet = True
+
+            if radOptionsSet and self.useGl:
+                printErrorAndExit('One among the following options :() are not'
+                                  ' compatible with Open GL'.format(",".join(radOptions)))
+
+            elif glRadOptionsSet and not self.useGl:
+                printErrorAndExit('You have specified an incompable Open GL related'
+                                  'input for running a rad based simulation'
+                                  .format(",".join(radOptions)))
 
 
-        # Create the string for rif file and write to disk.
-        rifString = 'scene= %s\n' % scene
-        rifString += 'EXPOSURE= 0.5\n'
-        rifString += 'UP= %s\n' % (
-            self.upDirection if self.upDirection else 'Z')
-        rifString += 'view = %s\n' % (
-            self.viewDetials if self.viewDetials else 'XYZ')
-        rifString += 'OCTREE= %s\n' % octreeFile
-        rifString += 'AMBF= %s\n' % ambFile
-        rifString += 'render= %s' % renderOptions
-        with open(rifFile, 'w') as rifData:
-            rifData.write(rifString)
+            # Create the string for rif file and write to disk.
+            rifString = 'scene= %s\n' % scene
+            rifString += 'EXPOSURE= 0.5\n'
+            rifString += 'UP= %s\n' % (
+                self.upDirection if self.upDirection else 'Z')
+            rifString += 'view = %s\n' % (
+                self.viewDetials if self.viewDetials else 'XYZ')
+            rifString += 'OCTREE= %s\n' % octreeFile
+            rifString += 'AMBF= %s\n' % ambFile
+            rifString += 'render= %s' % renderOptions
+            with open(rifFile, 'w') as rifData:
+                rifData.write(rifString)
 
 
-        # Based on user's choice select the output method.
-        if self.useGl:
-            cmdString = ['glrad']+radOptions+[rifFile]
-        else:
-            cmdString = ['rad']+['-o',outputDevice]+radOptions+[rifFile]
+            # Based on user's choice select the output method.
+            if self.useGl:
+                cmdString = ['glrad']+radOptions+[rifFile]
+            else:
+                cmdString = ['rad']+['-o',outputDevice]+radOptions+[rifFile]
 
-        # Run !
-        self.call_one(cmdString,'start rad')
+            # Run !
+            self.call_one(cmdString,'start rad')
+
+        except Exception as e:
+
+            pass
 
         #Delete tempfolder and files after rvu is closed.
         shutil.rmtree(tempDir)
@@ -180,6 +195,7 @@ def main():
                         help='Up direction. The default '
                              'up direction vector is +Z',
                         type=str, metavar='upDirection')
+
     parser.add_argument('-bv', action='store_true', dest='backFaceVisible',
                         help='Enable back-face visibility in the scene.')
     parser.add_argument('-v', action='store', dest='viewDetails',
@@ -192,18 +208,29 @@ def main():
                         help='Specify an output device for rendering',
                         type=str, metavar='outputDevice')
 
-    parser.add_argument('-s', '-w', action='store_true',
+    parser.add_argument('-w', action='store_true',
                         dest='disableWarnings',
-                        help='Disable reporting of warning messages.')
+                        help='Disable warnings about multiply and misassigned'
+                             ' variables.')
+
+    parser.add_argument('-s', action='store_true',
+                        dest='runSilently',
+                        help='Process the radiance scene silently')
 
     parser.add_argument('-S',action='store_true',dest='glRadFullScreen',
                         help='Enable full-screen stereo options with OpenGL')
 
-    parser.add_argument('-V', '-e', action='store_true',
+    parser.add_argument('-e', action='store_true',
                         dest='verboseDisplay',
-                        help='Display error messages in standard output')
+                        help='Display Radiance variables and  error messages in'
+                             ' standard output')
 
-    parser.add_argument('Radfiles', action='append', nargs='+',
+    parser.add_argument('-V', action='store_true',
+                        dest='printViewsStdin',
+                        help='Print each view on the standard output before being'
+                             ' applied')
+
+    parser.add_argument('Radfiles', action='append', nargs='*',
                         help='File(s) containing radiance scene objects that'
                              ' are to be rendered interactively.')
 
