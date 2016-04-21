@@ -49,11 +49,6 @@ bright source sun2 0 0 4 .3 1 1 5
 bright source sun3 0 0 4 -1 -.7 1 5"""
 
 
-def printErrorAndExit(errorString,tempFolder=None):
-    """Utility function for printing an error message and exiting"""
-    print(errorString)
-    print("Objview will now terminate.")
-    sys.exit(-1)
 
 
 class Objview(ProcMixin):
@@ -67,53 +62,46 @@ class Objview(ProcMixin):
         self.verboseDisplay = args.verboseDisplay
         self.disableWarnings = args.disableWarnings
         self.glRadFullScreen = args.glRadFullScreen
-        self.radFiles = args.Radfiles[0]
+
+        #Wrap all radfiles in quotes.
+        #Note that this won't work if there are multiple files with spaces in them.
+        self.radFiles =['"%s"'%radFile for radFile in args.Radfiles[0]]
 
         self.runSilently = args.runSilently
         self.printViewsStdin = args.printViewsStdin
         self.run()
 
     def run(self):
+
+        #Initialize a variable to avoid an attribute error later on.
+        self.tempDir = None
         try:
 
             outputDevice = 'x11'
 
             # Check if the OpenGL option was used in Windows.
             if self.useGl and sys.platform.startswith('win'):
-                printErrorAndExit("The use of OpenGL is not supported in Windows")
+                self.raise_on_error("Glrad is only available in an X11 environment","Then what")
 
-            # Try creating a temp folder. Exit if not possible.
-            try:
-                tempDir = tempfile.mkdtemp('RAD')
-            except IOError:
-                printErrorAndExit("Objview could not create a temp folder.\n")
+            #Create temp directory and files and attribute them to self.
+            self.createTemp()
 
-            # create strings for files that are to be written to.
-            createInTemp = lambda fileName: os.path.join(tempDir, fileName)
-            octreeFile = createInTemp('scene.oct')
-            lightsFile = createInTemp('lights.rad')
-            rifFile = createInTemp('scene.rif')
-            ambFile = createInTemp('scene.amb')
-
-            if self.radFiles:
-                print(self.radFiles)
-
-            # Write lights and join to the input rad files.
-            with open(lightsFile, 'w')as lightRad:
-                lightRad.write(lights)
-
-            self.radFiles.append(lightsFile)
-            scene = " ".join(self.radFiles)
 
             # If the OS is Windows then make the path Rad friendly by switching
             # slashes and set the output device to qt.
             if os.name == 'nt':
-                allFileNames = [scene, octreeFile, lightsFile, rifFile, ambFile]
-                for idx, fileName in enumerate(allFileNames):
-                    allFileNames[idx] = fileName.replace('\\', '/')
-
-                scene, octreeFile, lightsFile, rifFile, ambFile = allFileNames
+                self.radFiles = [s.replace('\\', '/') for s in self.radFiles]
+                self.octreeFile, self.lightsFile, self.rifFile, self.ambFile = [
+                    s.replace('\\', '/') for s in (self.octreeFile,
+                                                   self.lightsFile,
+                                                   self.rifFile,
+                                                   self.ambFile)]
                 outputDevice = 'qt'
+
+            #Append the lights file to rest of the scene.
+            self.radFiles.append(self.lightsFile)
+
+
 
             # If the output device is specified by the user, use that.
             if self.outputDevice:
@@ -144,45 +132,66 @@ class Objview(ProcMixin):
                 radOptionsSet = True
 
             if radOptionsSet and self.useGl:
-                printErrorAndExit('One among the following options :() are not'
+                self.raise_on_error("Setting rad options",
+                                    'One among the following options :() are not'
                                   ' compatible with Open GL'.format(",".join(radOptions)))
 
             elif glRadOptionsSet and not self.useGl:
-                printErrorAndExit('You have specified an incompable Open GL related'
-                                  'input for running a rad based simulation'
-                                  .format(",".join(radOptions)))
+                self.raise_on_error('set glRad options.',
+                                    "Although glRad options have been set,"
+                                    "the rendering is being run through RAD.")
 
 
-            # Create the string for rif file and write to disk.
-            rifString = 'scene= %s\n' % scene
-            rifString += 'EXPOSURE= 0.5\n'
-            rifString += 'UP= %s\n' % (
-                self.upDirection if self.upDirection else 'Z')
-            rifString += 'view = %s\n' % (
-                self.viewDetials if self.viewDetials else 'XYZ')
-            rifString += 'OCTREE= %s\n' % octreeFile
-            rifString += 'AMBF= %s\n' % ambFile
-            rifString += 'render= %s' % renderOptions
-            with open(rifFile, 'w') as rifData:
-                rifData.write(rifString)
+            self.rifLines = ['scene= %s'%s for s in self.radFiles]
+            self.rifLines.append('EXPOSURE= 0.5')
+            self.rifLines.append('UP= %s'%(self.upDirection or 'Z'))
+            self.rifLines.append('view= %s'%(self.viewDetials or 'XYZ'))
+            self.rifLines.append('OCTREE= %s'%self.octreeFile)
+            self.rifLines.append('AMBF= %s'%self.ambFile)
+            self.rifLines.append('render=%s'%renderOptions)
 
+            self.writeFiles()
 
             # Based on user's choice select the output method.
             if self.useGl:
-                cmdString = ['glrad']+radOptions+[rifFile]
+                cmdString = ['glrad']+radOptions+[self.rifFile]
             else:
-                cmdString = ['rad']+['-o',outputDevice]+radOptions+[rifFile]
+                if outputDevice:
+                    cmdString = ['rad']+['-o',outputDevice]+radOptions+[self.rifFile]
+                else:
+                    cmdString = ['rad'] +  radOptions + [self.rifFile]
 
-            # Run !
             self.call_one(cmdString,'start rad')
 
         except Exception as e:
+            print(e.message)
+        finally:
+            if self.tempDir:
+                #Delete tempfolder and files after rvu is closed.
+                shutil.rmtree(self.tempDir)
 
-            pass
+    def createTemp(self):
+        """Create temporary files and directories needed for objview"""
+        # Try creating a temp folder. Exit if not possible.
+        try:
+            self.tempDir = tempfile.mkdtemp('RAD')
+        except IOError as e:
+            self.raise_on_error("Create a temp folder",e)
 
-        #Delete tempfolder and files after rvu is closed.
-        shutil.rmtree(tempDir)
+        # create strings for files that are to be written to.
+        createInTemp = lambda fileName: os.path.join(self.tempDir, fileName)
+        self.octreeFile = createInTemp('scene.oct')
+        self.lightsFile = createInTemp('lights.rad')
+        self.rifFile = createInTemp('scene.rif')
+        self.ambFile = createInTemp('scene.amb')
 
+    def writeFiles(self):
+        # Write lights and join to the input rad files.
+        with open(self.lightsFile, 'w')as lightRad:
+            lightRad.write(lights)
+
+        with open(self.rifFile, 'w') as rifData:
+            rifData.write('\n'.join(self.rifLines) + '\n')
 
 
 def main():
