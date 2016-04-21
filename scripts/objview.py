@@ -81,7 +81,7 @@ class Objview(ProcMixin):
 
             # Check if the OpenGL option was used in Windows.
             if self.useGl and sys.platform.startswith('win'):
-                self.raise_on_error("Glrad is only available in an X11 environment","Then what")
+                self.raise_on_error("set glRad variables.","Glrad is only available in an X11 environment")
 
             #Create temp directory and files and attribute them to self.
             self.createTemp()
