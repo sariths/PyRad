@@ -1,4 +1,4 @@
-# !/usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 """
@@ -254,18 +254,12 @@ def main():
                         help='Print each view on the standard output before being'
                              ' applied')
 
-    parser.add_argument('Radfiles', action='append', nargs='*',
+    parser.add_argument('Radfiles', action='append', nargs='+',
                         help='File(s) containing radiance scene objects that'
                              ' are to be rendered interactively.')
 
     parser.add_argument('-H', action='help', help='Help: print this text to '
                                                   'stderr and exit.')
-
-    if len(sys.argv) <= 1:
-        sys.stdout.write(
-            'No input was specified. Please see the usage instructions'
-            ' below.' + '\n' * 2)
-        sys.argv.append('-H')
 
     Objview(parser.parse_args())
 
