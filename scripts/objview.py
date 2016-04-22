@@ -64,70 +64,46 @@ class Objview(ProcMixin):
         self.glRadFullScreen = args.glRadFullScreen
 
         #Wrap all radfiles in quotes.
-        #Note that this won't work if there are multiple files with spaces in them.
         self.radFiles =['"%s"'%radFile for radFile in args.Radfiles[0]]
 
         self.runSilently = args.runSilently
         self.printViewsStdin = args.printViewsStdin
-        self.run()
-
-    def run(self):
-
-        #Initialize a variable to avoid an attribute error later on.
         self.tempDir = None
-        try:
-
-            outputDevice = 'x11'
-
-            # Check if the OpenGL option was used in Windows.
-            if self.useGl and sys.platform.startswith('win'):
-                self.raise_on_error(
-                    "set glRad variables.","Glrad is only available in an X11 "
-                                           "environment")
-
-            #Create temp directory and files and attribute them to self.
-            self.createTemp()
-
-
-            # If the OS is Windows then make the path Rad friendly by switching
-            # slashes and set the output device to qt.
-            if os.name == 'nt':
-                self.radFiles = [s.replace('\\', '/') for s in self.radFiles]
-                self.octreeFile, self.lightsFile, self.rifFile, self.ambFile = [
-                    s.replace('\\', '/') for s in (self.octreeFile,self.lightsFile,
-                                                   self.rifFile, self.ambFile)]
-                outputDevice = 'qt'
-
-            #Append the lights file to rest of the scene.
-            self.radFiles.append(self.lightsFile)
-
-            # Check the inputs provided and set rad and render options.
-            self.radOptions,self.renderOptions = self.createRadRenderOptions()
-
-            #create Rif file inputs.
-            self.rifLines = self.createRifList()
-
-            #Write the temporary lights file as well as the rif file.
-            self.writeFiles()
-
-            # Based on user's choice select the output method.
-            if self.useGl:
-                cmdString = ['glrad']+self.radOptions+[self.rifFile]
-            else:
-                if outputDevice:
-                    cmdString = ['rad']+['-o',outputDevice]+self.radOptions+[self.rifFile]
-                else:
-                    cmdString = ['rad'] +  self.radOptions + [self.rifFile]
-
-            self.call_one(cmdString,'start rad')
-
-        except Exception as e:
-            print(e.message)
+        try: self.run()
         finally:
             if self.tempDir:
-                #Delete tempfolder and files after rvu is closed.
                 shutil.rmtree(self.tempDir)
 
+    def run(self):
+        outputDevice = 'x11'
+        if self.useGl and sys.platform.startswith('win'):
+            self.raise_on_error("set glRad variables.",
+                    "Glrad is only available in an X11 environment")
+
+        # If the OS is Windows then make the path Rad friendly by switching
+        # slashes and set the output device to qt.
+        if os.name == 'nt':
+            self.radFiles = [s.replace('\\', '/') for s in self.radFiles]
+            self.octreeFile, self.lightsFile, self.rifFile, self.ambFile = [
+                s.replace('\\', '/') for s in (self.octreeFile,self.lightsFile,
+                                               self.rifFile, self.ambFile)]
+            outputDevice = 'qt'
+
+        self.createTemp()
+        self.radFiles.append(self.lightsFile)
+        self.radOptions,self.renderOptions = self.createRadRenderOptions()
+        self.rifLines = self.createRifList()
+        self.writeFiles()
+
+        if self.useGl:
+            cmdString = ['glrad']+self.radOptions+[self.rifFile]
+        else:
+            if outputDevice:
+                cmdString = ['rad']+['-o',outputDevice]+self.radOptions+[self.rifFile]
+            else:
+                cmdString = ['rad'] +  self.radOptions + [self.rifFile]
+
+        self.call_one(cmdString,'start rad')
 
     def createTemp(self):
         """Create temporary files and directories needed for objview"""
