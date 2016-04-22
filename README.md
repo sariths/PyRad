@@ -24,6 +24,7 @@ some additional functionality.
  * **rlux.py** - Compute illuminance from ray origin and direction
  * **pveil.py** - Add veiling glare to picture
  * **glaze.py** - Interactive complex glazing model generator
+ * **objview.py** - view Radiance objects
 
 ###Contributions welcome
  - more scripts (implementing the same design goals)
