@@ -82,8 +82,8 @@ class Objview(ProcMixin):
             # Check if the OpenGL option was used in Windows.
             if self.useGl and sys.platform.startswith('win'):
                 self.raise_on_error(
-                    "set glRad variables.",IOError('',"Glrad is only available "
-                                                      "in an X11 environment"))
+                    "set glRad variables.","Glrad is only available in an X11 "
+                                           "environment")
 
             #Create temp directory and files and attribute them to self.
             self.createTemp()
@@ -177,15 +177,14 @@ class Objview(ProcMixin):
             radOptionsSet = True
 
         if radOptionsSet and self.useGl:
-            self.raise_on_error("Setting rad options",
-                                IOError('','One among the following options :() '
-                                           'are not compatible with Open GL'
-                                        .format(",".join(radOptions))))
+            self.raise_on_error("setting rad options",
+                                'One among the following options :() are not '
+                                'compatible with Open GL'.format(",".join(radOptions)))
 
         elif glRadOptionsSet and not self.useGl:
             self.raise_on_error('set glRad options.',
-                                IOError('', "Although glRad options have been set,"
-                                            "the rendering is being run through RAD."))
+                                 "Although glRad options have been set the "
+                                 "rendering is being run through RAD.")
 
         return radOptions,renderOptions
 
