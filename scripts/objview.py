@@ -81,7 +81,9 @@ class Objview(ProcMixin):
 
             # Check if the OpenGL option was used in Windows.
             if self.useGl and sys.platform.startswith('win'):
-                self.raise_on_error("set glRad variables.","Glrad is only available in an X11 environment")
+                self.raise_on_error(
+                    "set glRad variables.",IOError('',"Glrad is only available "
+                                                      "in an X11 environment"))
 
             #Create temp directory and files and attribute them to self.
             self.createTemp()
@@ -92,74 +94,30 @@ class Objview(ProcMixin):
             if os.name == 'nt':
                 self.radFiles = [s.replace('\\', '/') for s in self.radFiles]
                 self.octreeFile, self.lightsFile, self.rifFile, self.ambFile = [
-                    s.replace('\\', '/') for s in (self.octreeFile,
-                                                   self.lightsFile,
-                                                   self.rifFile,
-                                                   self.ambFile)]
+                    s.replace('\\', '/') for s in (self.octreeFile,self.lightsFile,
+                                                   self.rifFile, self.ambFile)]
                 outputDevice = 'qt'
 
             #Append the lights file to rest of the scene.
             self.radFiles.append(self.lightsFile)
 
+            # Check the inputs provided and set rad and render options.
+            self.radOptions,self.renderOptions = self.createRadRenderOptions()
 
+            #create Rif file inputs.
+            self.rifLines = self.createRifList()
 
-            # If the output device is specified by the user, use that.
-            if self.outputDevice:
-                outputDevice = self.outputDevice
-
-            renderOptions = ''
-            if self.backFaceVisible:
-                renderOptions += '-bv '
-
-            radOptions = []
-            radOptionsSet = False
-            glRadOptionsSet = False
-            if self.disableWarnings:
-                radOptions.append("-w")
-            if self.numProc:
-                radOptions.extend(['-N',str(self.numProc)])
-                radOptionsSet = True
-            if self.verboseDisplay:
-                radOptions.append('-e')
-                radOptionsSet = True
-            if self.glRadFullScreen:
-                radOptions.append('-S')
-                glRadOptionsSet=True
-            if self.runSilently:
-                radOptions.append('-s')
-            if self.printViewsStdin:
-                radOptions.append('-V')
-                radOptionsSet = True
-
-            if radOptionsSet and self.useGl:
-                self.raise_on_error("Setting rad options",
-                                    'One among the following options :() are not'
-                                  ' compatible with Open GL'.format(",".join(radOptions)))
-
-            elif glRadOptionsSet and not self.useGl:
-                self.raise_on_error('set glRad options.',
-                                    "Although glRad options have been set,"
-                                    "the rendering is being run through RAD.")
-
-
-            self.rifLines = ['scene= %s'%s for s in self.radFiles]
-            self.rifLines.append('EXPOSURE= 0.5')
-            self.rifLines.append('UP= %s'%(self.upDirection or 'Z'))
-            self.rifLines.append('view= %s'%(self.viewDetials or 'XYZ'))
-            self.rifLines.append('OCTREE= %s'%self.octreeFile)
-            self.rifLines.append('AMBF= %s'%self.ambFile)
-            self.rifLines.append('render=%s'%renderOptions)
-
+            #Write the temporary lights file as well as the rif file.
             self.writeFiles()
 
             # Based on user's choice select the output method.
             if self.useGl:
-                cmdString = ['glrad']+radOptions+[self.rifFile]
+                cmdString = ['glrad']+self.radOptions+[self.rifFile]
             else:
                 if outputDevice:
-                    cmdString = ['rad']+['-o',outputDevice]+radOptions+[self.rifFile]
+                    cmdString = ['rad']+['-o',outputDevice]+self.radOptions+[self.rifFile]
                 else:
-                    cmdString = ['rad'] +  radOptions + [self.rifFile]
+                    cmdString = ['rad'] +  self.radOptions + [self.rifFile]
 
             self.call_one(cmdString,'start rad')
 
@@ -169,6 +127,7 @@ class Objview(ProcMixin):
             if self.tempDir:
                 #Delete tempfolder and files after rvu is closed.
                 shutil.rmtree(self.tempDir)
+
 
     def createTemp(self):
         """Create temporary files and directories needed for objview"""
@@ -184,6 +143,63 @@ class Objview(ProcMixin):
         self.lightsFile = createInTemp('lights.rad')
         self.rifFile = createInTemp('scene.rif')
         self.ambFile = createInTemp('scene.amb')
+
+    def createRadRenderOptions(self):
+        """Based on the inputs provided, create options for running Rad/Glrad
+        and also set rendering options."""
+
+        # If the output device is specified by the user, use that.
+        if self.outputDevice:
+            outputDevice = self.outputDevice
+
+        renderOptions = ''
+        if self.backFaceVisible:
+            renderOptions += '-bv '
+
+        radOptions = []
+        radOptionsSet = False
+        glRadOptionsSet = False
+        if self.disableWarnings:
+            radOptions.append("-w")
+        if self.numProc:
+            radOptions.extend(['-N', str(self.numProc)])
+            radOptionsSet = True
+        if self.verboseDisplay:
+            radOptions.append('-e')
+            radOptionsSet = True
+        if self.glRadFullScreen:
+            radOptions.append('-S')
+            glRadOptionsSet = True
+        if self.runSilently:
+            radOptions.append('-s')
+        if self.printViewsStdin:
+            radOptions.append('-V')
+            radOptionsSet = True
+
+        if radOptionsSet and self.useGl:
+            self.raise_on_error("Setting rad options",
+                                IOError('','One among the following options :() '
+                                           'are not compatible with Open GL'
+                                        .format(",".join(radOptions))))
+
+        elif glRadOptionsSet and not self.useGl:
+            self.raise_on_error('set glRad options.',
+                                IOError('', "Although glRad options have been set,"
+                                            "the rendering is being run through RAD."))
+
+        return radOptions,renderOptions
+
+    def createRifList(self):
+        """Create a list of RifFile variables based on user input and defaults."""
+        rifList = ['scene= %s' % s for s in self.radFiles]
+        rifList.append('EXPOSURE= 0.5')
+        rifList.append('UP= %s' % (self.upDirection or 'Z'))
+        rifList.append('view= %s' % (self.viewDetials or 'XYZ'))
+        rifList.append('OCTREE= %s' % self.octreeFile)
+        rifList.append('AMBF= %s' % self.ambFile)
+        rifList.append('render=%s' % self.renderOptions)
+
+        return rifList
 
     def writeFiles(self):
         # Write lights and join to the input rad files.
