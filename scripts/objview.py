@@ -76,9 +76,13 @@ class Objview(ProcMixin):
 
     def run(self):
         outputDevice = 'x11'
-        if self.useGl and sys.platform.startswith('win'):
+        if self.useGl and os.name == 'nt':
             self.raise_on_error("set glRad variables.",
                     "Glrad is only available in an X11 environment")
+
+        self.createTemp()
+        self.radFiles.append(self.lightsFile)
+        self.radOptions, self.renderOptions = self.createRadRenderOptions()
 
         # If the OS is Windows then make the path Rad friendly by switching
         # slashes and set the output device to qt.
@@ -89,9 +93,7 @@ class Objview(ProcMixin):
                                                self.rifFile, self.ambFile)]
             outputDevice = 'qt'
 
-        self.createTemp()
-        self.radFiles.append(self.lightsFile)
-        self.radOptions,self.renderOptions = self.createRadRenderOptions()
+
         self.rifLines = self.createRifList()
         self.writeFiles()
 
