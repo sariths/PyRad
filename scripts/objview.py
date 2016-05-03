@@ -62,10 +62,7 @@ class Objview(ProcMixin):
         self.verboseDisplay = args.verboseDisplay
         self.disableWarnings = args.disableWarnings
         self.glRadFullScreen = args.glRadFullScreen
-
-        #Wrap all radfiles in quotes.
-        self.radFiles =['"%s"'%radFile for radFile in args.Radfiles[0]]
-
+        self.radFiles = args.Radfiles[0]
         self.runSilently = args.runSilently
         self.printViewsStdin = args.printViewsStdin
         self.tempDir = None
@@ -168,7 +165,7 @@ class Objview(ProcMixin):
 
     def createRifList(self):
         """Create a list of RifFile variables based on user input and defaults."""
-        rifList = ['scene= %s' % s for s in self.radFiles]
+        rifList = ['scene= "%s"' % s for s in self.radFiles]
         rifList.append('EXPOSURE= 0.5')
         rifList.append('UP= %s' % (self.upDirection or 'Z'))
         rifList.append('view= %s' % (self.viewDetials or 'XYZ'))
