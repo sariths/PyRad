@@ -133,7 +133,7 @@ class Genambpos(ProcMixin):
     def __init__(self,args):
         self.ambientFile =args.AmbientFile[0]
         self.level = args.level if args.level is not None else -1
-        self.radius = "-e psiz:%s"%args.radius if args.radius else ''
+        self.radius = '-e psiz:%s'%args.radius if args.radius else ''
         self.scalingFactor = args.scalingFactor or 0.25
         self.position = args.position
         self.direct = args.direct
@@ -147,16 +147,13 @@ class Genambpos(ProcMixin):
             self.scalingFactor *= ambientAccValue
 
             lookambCmd=['lookamb','-h','-d',self.ambientFile]
-            #debug
-            print(" ".join(lookambCmd))
+
 
 
             rcalcCmd = ['rcalc',
-                        '-e "LV:{0};MW:{1};SF:{2}"'.format(self.level,self.minwt,self.scalingFactor),
-                       '-f','rambpos.cal','-e','cond=acond %s'%self.radius,
-                        '-o',"'%s'"%posGradFormat]
-            #debug
-            print(" ".join(rcalcCmd))
+                        '-e ','LV:{0};MW:{1};SF:{2}'.format(self.level,self.minwt,self.scalingFactor),
+                       '-f','rambpos.cal','-e','cond=acond']+ self.radius.split()+ ['-o','%s'%posGradFormat]
+
 
             self.call_two(lookambCmd,rcalcCmd,
                           'retrieve ambient values through lookamb',
