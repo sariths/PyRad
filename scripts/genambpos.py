@@ -13,12 +13,10 @@ http://climate-based-daylighting.com/lib/exe/fetch.php?media=tech_note_003.pdf
 
 """
 
-
 from __future__ import division, print_function, unicode_literals
 import os
 import sys
 import argparse
-
 
 # __all__ = ('main')
 
@@ -102,7 +100,7 @@ tipglow sphere atip
 4 ${   cx1   } ${   cy1   } ${   cz1   } ${psiz/7}
 """
 
-dirGradFormat="""
+dirGradFormat = """
 void brightfunc dgpat
 2 dirfunc ambpos.cal
 0
@@ -129,15 +127,21 @@ dgval ring dgdisk${recno}b
     ${ -dgx } ${ -dgy } ${ -dgz }
     0	${  r0/2  }"""
 
+
 class Genambpos(ProcMixin):
-    def __init__(self,args):
-        self.ambientFile =args.AmbientFile[0]
-        self.level = args.level if args.level is not None else -1
-        self.radius = '-e psiz:%s'%args.radius if args.radius else ''
-        self.scalingFactor = args.scalingFactor or 0.25
+    def __init__(self, args):
+        self.ambientFile = args.AmbientFile[0]
+        self.level = int(args.level) if args.level is not None else -1
+        self.radius = ['-e', 'psiz:%s' % args.radius] if args.radius else []
+        self.scalingFactor = float(args.scalingFactor)if args.scalingFactor is not None else 0.25
         self.position = args.position
         self.direct = args.direct
-        self.minwt = args.minwt or 0.5001**6
+        self.minwt = float(args.minwt)if args.minwt is not None else 0.5001 ** 6
+
+        self.posGradFormat = posGradFormat
+        self.posGradFormatAppend = posGradFormatAppend
+        self.ambientFormat = ambientFormat
+        self.dirGradFormat = dirGradFormat
 
         self.run()
 
@@ -146,19 +150,37 @@ class Genambpos(ProcMixin):
             ambientAccValue = self.getAmbientAccValue()
             self.scalingFactor *= ambientAccValue
 
-            lookambCmd=['lookamb','-h','-d',self.ambientFile]
-
-
+            lookambCmd = ['lookamb', '-h', '-d', self.ambientFile]
 
             rcalcCmd = ['rcalc',
-                        '-e ','LV:{0};MW:{1};SF:{2}'.format(self.level,self.minwt,self.scalingFactor),
-                       '-f','rambpos.cal','-e','cond=acond']+ self.radius.split()+ ['-o','%s'%posGradFormat]
+                        '-e ',
+                        'LV:{0};MW:{1};SF:{2}'.format(self.level, self.minwt,
+                                                      self.scalingFactor),
+                        '-f', 'rambpos.cal', '-e','cond=acond'] + \
+                       self.radius + ['-o',  ambientFormat]
 
-
-            self.call_two(lookambCmd,rcalcCmd,
+            self.call_two(lookambCmd, rcalcCmd,
                           'retrieve ambient values through lookamb',
                           'generate rad files with rcalc',
                           out=sys.stdout)
+
+            if self.position:
+                if self.direct:
+                    posGradFormat = self.posGradFormat + self.posGradFormatAppend
+
+                    rcalcCmdPos = rcalcCmd[:-1]+ [posGradFormat]
+
+                    self.call_two(lookambCmd, rcalcCmdPos,
+                                  'retrieve ambient values through lookamb',
+                                  'generate rad files with rcalc for position option',
+                                  out=sys.stdout)
+
+            if self.direct:
+                rcalcCmdDir = rcalcCmd[:6]+['cond=dcond','-o',dirGradFormat]
+
+                self.call_two(lookambCmd,rcalcCmdDir,
+                              'retrieve ambient values through lookamb',
+                              'generate rad files with rcalc for direct option')
 
         else:
             self.raise_on_error('read ambient file',
@@ -190,25 +212,28 @@ def main():
                                      description='Generate markers where ambient '
                                                  'sampling occured')
 
-    parser.add_argument('-l',action='store',dest='level',
+    parser.add_argument('-l', action='store', dest='level',
                         help='level')
-    parser.add_argument('-w',action='store',dest='minwt',
+    parser.add_argument('-w', action='store', dest='minwt',
                         help='minwt')
-    parser.add_argument('-r',action='store',dest='radius',
+    parser.add_argument('-r', action='store', dest='radius',
                         help='radius')
-    parser.add_argument('-s',action='store',dest='scalingFactor',
+    parser.add_argument('-s', action='store', dest='scalingFactor',
                         help='scaling factor')
-    parser.add_argument('-p',action='store_true',dest='position',
+    parser.add_argument('-p', action='store_true', dest='position',
                         help='position')
-    parser.add_argument('-d',action='store_true',dest='direct',
+    parser.add_argument('-d', action='store_true', dest='direct',
                         help='direct')
     parser.add_argument('AmbientFile', action='append',
                         help='full path of the ambient file that is to be '
                              'analyzed.')
-    parser.add_argument('-H',action='help',help='Help: print this text to stderr'
-                                                'and exit.')
+    parser.add_argument('-H', action='help',
+                        help='Help: print this text to stderr'
+                             'and exit.')
 
     Genambpos(parser.parse_args())
+
+
 if __name__ == "__main__":
     try:
         main()
